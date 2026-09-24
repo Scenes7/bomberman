@@ -19,29 +19,20 @@ All gameplay numbers are in `CONFIG` at the top of `public/shared.js`:
 map density, etc. The server sends its values to clients when a match starts,
 so just edit and restart the server.
 
-## Deploy to Lightsail (container service)
+## Deployment
 
-Requires Docker, the AWS CLI and the `lightsailctl` plugin.
+- **Frontend** — GitHub Pages via `.github/workflows/pages.yml` (Settings → Pages → Source:
+  *GitHub Actions*). Runs on every push to `main` that touches `public/`, or manually from the
+  Actions tab. `public/config.js` points the Pages site at the backend below.
+- **Backend** — Lightsail instance `bomberman` (us-east-1, static IP `34.198.211.103`), served at
+  `https://34-198-211-103.sslip.io`. It runs `deploy/docker-compose.yml`: the game server plus
+  Caddy, which gets the HTTPS certificate automatically. `deploy/.env` on the server sets
+  `DOMAIN` and `CORS_ORIGINS`.
+
+To redeploy the backend, copy the repo to `~/bomberman` on the instance and run:
 
 ```
-docker build -t bomberman .
-aws lightsail create-container-service --service-name bomberman --power nano --scale 1
-aws lightsail push-container-image --service-name bomberman --label app --image bomberman
-aws lightsail create-container-service-deployment --service-name bomberman \
-  --containers file://lightsail/containers.json \
-  --public-endpoint file://lightsail/endpoint.json
-aws lightsail get-container-services --service-name bomberman   # shows the public URL
+sudo docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 ```
 
-Keep `--scale 1`: lobbies live in server memory. To redeploy, push the image again and
-re-run the deployment command.
-
-**Alternative (Lightsail instance):** on an Ubuntu instance with Docker installed,
-clone the repo and run `docker compose up -d --build` (serves on port 80).
-
-## Hosting the frontend separately (optional)
-
-The server serves `public/` itself. To host the static files elsewhere instead, set
-`window.SERVER_URL` in `public/config.js`, point the socket.io `<script>` in
-`index.html` at `<SERVER_URL>/socket.io/socket.io.js`, and start the server with
-`CORS_ORIGINS=https://your-frontend.example`.
+If the backend moves, update the URL in `public/config.js` and `CORS_ORIGINS` in `deploy/.env`.
