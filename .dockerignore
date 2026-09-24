@@ -1,0 +1,9 @@
+node_modules
+.git
+images
+*accessKeys*.csv
+*.pem
+.env
+prompt*
+lightsail
+README.md

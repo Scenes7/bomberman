@@ -1,0 +1,4 @@
+node_modules/
+*accessKeys*.csv
+*.pem
+.env

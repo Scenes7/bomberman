@@ -1,0 +1,7 @@
+{
+  "bomberman": {
+    "image": ":bomberman.app.latest",
+    "ports": { "3000": "HTTP" },
+    "environment": { "PORT": "3000" }
+  }
+}

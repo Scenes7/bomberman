@@ -1,0 +1,5 @@
+{
+  "containerName": "bomberman",
+  "containerPort": 3000,
+  "healthCheck": { "path": "/health" }
+}

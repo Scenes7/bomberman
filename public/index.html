@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bomberman</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Home: pick a name, create or join a lobby -->
+  <section id="screen-home" class="screen active">
+    <h1>BOMBERMAN</h1>
+    <div class="card">
+      <p id="invite" class="hint" hidden></p>
+      <label for="name">Your name</label>
+      <input id="name" maxlength="16" placeholder="Guest" autocomplete="off">
+      <button id="create" class="primary">Create lobby</button>
+      <div class="divider"><span>or join one</span></div>
+      <div class="row">
+        <input id="code" maxlength="5" placeholder="CODE" autocomplete="off">
+        <button id="join">Join</button>
+      </div>
+      <p id="home-error" class="error"></p>
+    </div>
+  </section>
+
+  <!-- Lobby: share the link, wait for a friend, host starts -->
+  <section id="screen-lobby" class="screen">
+    <h1>LOBBY <span id="lobby-code"></span></h1>
+    <div class="card">
+      <label for="link">Send this link to your friend</label>
+      <div class="row">
+        <input id="link" readonly>
+        <button id="copy">Copy</button>
+      </div>
+      <ul id="player-list"></ul>
+      <button id="start" class="primary">Start match</button>
+      <p id="lobby-status" class="hint"></p>
+    </div>
+  </section>
+
+  <!-- Game -->
+  <section id="screen-game" class="screen">
+    <div id="hud"></div>
+    <div class="stage">
+      <canvas id="canvas"></canvas>
+      <div id="overlay" hidden></div>
+    </div>
+  </section>
+
+  <script src="config.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="shared.js"></script>
+  <script src="render.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
