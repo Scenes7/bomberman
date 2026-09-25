@@ -88,6 +88,19 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #3a404b; }
 
+/* Invite link: joining that one lobby is the only sensible action, so the
+   create path and the code box (already filled in from the link) drop away. */
+#screen-home.invited #create,
+#screen-home.invited #or-divider,
+#screen-home.invited #code { display: none; }
+#screen-home.invited #join { flex: 1; }
+.hint .code {
+  font-family: var(--pixel);
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
 .error { color: var(--danger); min-height: 1.2em; margin: 0; }
 .hint { color: var(--muted); margin: 0; text-align: center; }
 

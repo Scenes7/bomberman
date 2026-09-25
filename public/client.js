@@ -16,13 +16,32 @@
   const nameInput = $('name');
   try { nameInput.value = localStorage.getItem('bomberman-name') || ''; } catch {}
 
-  const inviteCode = new URLSearchParams(location.search).get('lobby');
-  if (inviteCode) {
-    $('code').value = inviteCode.toUpperCase();
-    $('invite').hidden = false;
-    $('invite').textContent = `You've been invited to lobby ${inviteCode.toUpperCase()} — enter your name and hit Join.`;
+  // Arriving through an invite link, there is only one sensible thing to do, so the
+  // page offers only that: join. Lobby codes are A-Z/2-9, so anything else in the
+  // query string isn't a real invite and the normal home screen stays put.
+  const inviteCode = (new URLSearchParams(location.search).get('lobby') || '')
+    .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+  let invited = false;
+
+  function setInvited(on) {
+    invited = on;
+    $('screen-home').classList.toggle('invited', on);
+    $('join').classList.toggle('primary', on);
+    $('join').textContent = on ? 'Join lobby' : 'Join';
+    $('invite').hidden = !on;
+    if (!on) $('create-instead').hidden = true;
   }
-  (nameInput.value ? $(inviteCode ? 'join' : 'create') : nameInput).focus();
+
+  if (inviteCode) {
+    $('code').value = inviteCode;
+    const tag = document.createElement('strong');
+    tag.className = 'code';
+    tag.textContent = inviteCode;
+    $('invite').textContent = 'You\u2019ve been invited to lobby ';
+    $('invite').append(tag);
+    setInvited(true);
+  }
+  (nameInput.value ? $(invited ? 'join' : 'create') : nameInput).focus();
 
   function playerName() {
     const name = nameInput.value.trim() || 'Guest';
@@ -31,20 +50,31 @@
   }
 
   function entered(res) {
-    if (!res.ok) { $('home-error').textContent = res.error; return; }
+    if (!res.ok) {
+      $('home-error').textContent = res.error;
+      // The invite is stale (lobby gone, full, or already playing) and the create
+      // button is hidden, so offer the way out rather than stranding them here.
+      if (invited) $('create-instead').hidden = false;
+      return;
+    }
     myId = res.id;
     history.replaceState(null, '', `?lobby=${res.code}`);
     show('lobby');
   }
 
-  $('create').onclick = () => socket.emit('createLobby', { name: playerName() }, entered);
+  const createLobby = () => {
+    $('home-error').textContent = '';
+    socket.emit('createLobby', { name: playerName() }, entered);
+  };
+  $('create').onclick = createLobby;
+  $('create-instead').onclick = () => { setInvited(false); createLobby(); };
   $('join').onclick = () => {
     const code = $('code').value.trim();
     if (!code) { $('home-error').textContent = 'Enter a lobby code.'; return; }
     socket.emit('joinLobby', { code, name: playerName() }, entered);
   };
   $('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('join').click(); });
-  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') $(inviteCode ? 'join' : 'create').click(); });
+  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') $(invited ? 'join' : 'create').click(); });
 
   // ---------- lobby ----------
   socket.on('lobby', data => {

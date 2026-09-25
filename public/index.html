@@ -17,12 +17,14 @@
       <label for="name">Your name</label>
       <input id="name" maxlength="16" placeholder="Guest" autocomplete="off">
       <button id="create" class="primary">Create lobby</button>
-      <div class="divider"><span>or join one</span></div>
+      <div class="divider" id="or-divider"><span>or join one</span></div>
       <div class="row">
         <input id="code" maxlength="5" placeholder="CODE" autocomplete="off">
         <button id="join">Join</button>
       </div>
       <p id="home-error" class="error"></p>
+      <!-- Only shown if an invite turns out to be dead, so nobody hits a dead end. -->
+      <button id="create-instead" hidden>Create a new lobby instead</button>
     </div>
   </section>
 
