@@ -10,7 +10,7 @@
     PLAYER_SPEED: 4,         // tiles per second
     FUSE_TIME: 2500,         // ms from placing a bomb to explosion
     MAX_BOMBS: 1,            // bombs a player can have on the map at once, before powerups
-    BLAST_RANGE: 2,          // tiles the flame reaches in each direction, before powerups
+    BLAST_RANGE: 1,          // tiles the flame reaches in each direction, before powerups
     EXPLOSION_DURATION: 500, // ms flames stay deadly
     POWERUP_DROP_CHANCE: 0.25,  // chance a destroyed block leaves a powerup behind
     MAX_POWERUP_LEVEL: 7,       // times each stat can be upgraded; further pickups do nothing
@@ -19,7 +19,7 @@
     SOFT_BLOCK_CHANCE: 0.55, // chance a tile starts as a breakable block
     HARD_WALL_CHANCE: 0.12,  // chance a tile starts as an unbreakable wall
     PLAYER_SIZE: 0.7,        // hitbox width as a fraction of a tile
-    MAX_PLAYERS: 2,
+    MAX_PLAYERS: 4,          // one per corner; spawnPoints() must supply this many
   };
 
   const TILE = { EMPTY: 0, HARD: 1, SOFT: 2 };
@@ -54,11 +54,14 @@
     return true;
   }
 
-  // Spawn tiles, in join order: top-left, bottom-right.
+  // Spawn tiles, in join order: the four corners. Diagonally opposite pairs come
+  // first so a two-player match starts as far apart as the map allows.
   function spawnPoints(n) {
     return [
       { x: 0, y: 0 },
       { x: n - 1, y: n - 1 },
+      { x: n - 1, y: 0 },
+      { x: 0, y: n - 1 },
     ];
   }
 

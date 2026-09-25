@@ -225,7 +225,7 @@
       for (const [type, value] of [
         [POWERUP.BOMBS, p.maxBombs],
         [POWERUP.RANGE, p.blastRange],
-        [POWERUP.SPEED, `${(1 + game.cfg.SPEED_STEP * (lv[POWERUP.SPEED] || 0)).toFixed(1)}\u00d7`],
+        [POWERUP.SPEED, lv[POWERUP.SPEED] || 0],
       ]) {
         const chip = document.createElement('span');
         chip.className = `stat ${type}` + ((lv[type] || 0) >= max ? ' maxed' : '');

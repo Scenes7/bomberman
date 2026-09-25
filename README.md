@@ -1,6 +1,6 @@
 # Bomberman
 
-2-player online Bomberman. Static frontend (HTML / vanilla JS / CSS) in `public/`,
+Online Bomberman for 2-4 players. Static frontend (HTML / vanilla JS / CSS) in `public/`,
 Node + socket.io server in `server/`, packaged with Docker for AWS Lightsail.
 
 ## Run locally
@@ -10,7 +10,8 @@ npm install
 npm start          # http://localhost:3000
 ```
 
-Create a lobby, copy the link, open it in a second browser window (or send it to a friend).
+Create a lobby, copy the link, and open it in other browser windows (or send it to friends).
+Up to four play at once, one per corner of the map; the host can start once two have joined.
 
 ## Tuning
 
@@ -24,6 +25,9 @@ one), `MAX_POWERUP_LEVEL` (how many times each stat can be raised) and `SPEED_ST
 Players start at `MAX_BOMBS` bombs and `BLAST_RANGE` reach and upgrade from there;
 speed stacks on the base rather than compounding, so the level cap is a 2.4x sprint
 rather than a 3.6x one.
+
+`MAX_PLAYERS` is capped by `spawnPoints()` in the same file, which hands out one map
+corner per player -- raising it past 4 means giving it more spawns to hand out.
 
 ## Deployment
 
