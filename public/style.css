@@ -120,13 +120,34 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 
 #hud {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;            /* stat chips make this row long on a phone */
+  justify-content: center;
+  gap: 10px 24px;
   font-family: var(--pixel);
   font-size: 11px;
+  max-width: 92vw;
 }
 .hud-player { display: flex; align-items: center; gap: 8px; }
 .hud-player.dead { opacity: 0.35; text-decoration: line-through; }
 .swatch { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #000; }
+
+/* Powerup stats. Chip colours match the pickups drawn on the board. */
+.stats { display: flex; gap: 4px; }
+.stat {
+  border: 1px solid;
+  border-radius: 4px;
+  padding: 3px 5px;
+  font-size: 9px;
+  line-height: 1;
+}
+.stat.bombs { color: #9dbcff; border-color: #5b8def; background: #1f2a44; }
+.stat.range { color: #ffc189; border-color: #ff8a3c; background: #3d1a12; }
+.stat.speed { color: #9af2d8; border-color: #2fd6a8; background: #0f3a33; }
+.stat.maxed { box-shadow: 0 0 0 1px var(--accent) inset; font-weight: 700; }
+
+.pu-bombs { color: #9dbcff; }
+.pu-range { color: #ffc189; }
+.pu-speed { color: #9af2d8; }
 
 .stage { position: relative; }
 

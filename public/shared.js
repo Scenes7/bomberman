@@ -9,9 +9,12 @@
     GRID_SIZE: 20,           // map is GRID_SIZE x GRID_SIZE tiles
     PLAYER_SPEED: 4,         // tiles per second
     FUSE_TIME: 2500,         // ms from placing a bomb to explosion
-    MAX_BOMBS: 2,            // bombs a player can have on the map at once
-    BLAST_RANGE: 2,          // tiles the flame reaches in each direction
+    MAX_BOMBS: 1,            // bombs a player can have on the map at once, before powerups
+    BLAST_RANGE: 2,          // tiles the flame reaches in each direction, before powerups
     EXPLOSION_DURATION: 500, // ms flames stay deadly
+    POWERUP_DROP_CHANCE: 0.25,  // chance a destroyed block leaves a powerup behind
+    MAX_POWERUP_LEVEL: 7,       // times each stat can be upgraded; further pickups do nothing
+    SPEED_STEP: 0.2,            // each speed powerup adds 20% of the BASE speed (see note below)
     COUNTDOWN: 5000,         // ms of frozen "get ready" time at match start
     SOFT_BLOCK_CHANCE: 0.55, // chance a tile starts as a breakable block
     HARD_WALL_CHANCE: 0.12,  // chance a tile starts as an unbreakable wall
@@ -20,6 +23,36 @@
   };
 
   const TILE = { EMPTY: 0, HARD: 1, SOFT: 2 };
+
+  // Powerup kinds. The values double as the keys of a player's `levels` object,
+  // so a pickup needs no type -> field mapping.
+  //
+  // Speed stacks on the base rather than compounding: at the level-7 cap that is
+  // 2.4x base (9.6 tiles/s). Compounding 1.2^7 would be 3.58x -- fast enough to
+  // cross the whole map in under a second and a half.
+  const POWERUP = { BOMBS: 'bombs', RANGE: 'range', SPEED: 'speed' };
+  const POWERUP_TYPES = [POWERUP.BOMBS, POWERUP.RANGE, POWERUP.SPEED];
+
+  // Starting stats for a player, before any powerup.
+  function baseStats(cfg) {
+    return {
+      maxBombs: cfg.MAX_BOMBS,
+      blastRange: cfg.BLAST_RANGE,
+      speed: cfg.PLAYER_SPEED,
+      levels: { [POWERUP.BOMBS]: 0, [POWERUP.RANGE]: 0, [POWERUP.SPEED]: 0 },
+    };
+  }
+
+  // Apply a pickup. A stat already at the cap still swallows the powerup but
+  // gains nothing, so the caller removes it from the ground either way.
+  function applyPowerup(p, type, cfg) {
+    if (p.levels[type] >= cfg.MAX_POWERUP_LEVEL) return false;
+    p.levels[type]++;
+    if (type === POWERUP.BOMBS) p.maxBombs++;
+    else if (type === POWERUP.RANGE) p.blastRange++;
+    else p.speed = cfg.PLAYER_SPEED * (1 + cfg.SPEED_STEP * p.levels[type]);
+    return true;
+  }
 
   // Spawn tiles, in join order: top-left, bottom-right.
   function spawnPoints(n) {
@@ -98,5 +131,6 @@
     if (shift !== 0 && tryPos(p[main], p[cross] + shift)) p[cross] += shift;
   }
 
-  return { CONFIG, TILE, spawnPoints, isSolid, overlappedTiles, collides, stepPlayer };
+  return { CONFIG, TILE, POWERUP, POWERUP_TYPES, baseStats, applyPowerup,
+           spawnPoints, isSolid, overlappedTiles, collides, stepPlayer };
 });

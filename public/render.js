@@ -2,7 +2,7 @@
 // inside a one-tile border of hard walls.
 const Render = (() => {
   const T = 32;
-  const { TILE } = Shared;
+  const { TILE, POWERUP } = Shared;
 
   function setup(canvas, n) {
     canvas.width = canvas.height = (n + 2) * T;
@@ -54,6 +54,50 @@ const Render = (() => {
     ctx.beginPath(); ctx.arc(cx + r * 0.85, cy - r * 1.1, 3, 0, Math.PI * 2); ctx.fill();
   }
 
+  // Powerups: a coloured plate with a glyph, bobbing gently so they read as pickups.
+  // Colours match the HUD chips for the same stat.
+  const PU = {
+    [POWERUP.BOMBS]: { plate: '#1f2a44', edge: '#5b8def', mark: '#dfe7ff' },
+    [POWERUP.RANGE]: { plate: '#3d1a12', edge: '#ff8a3c', mark: '#ffd9a0' },
+    [POWERUP.SPEED]: { plate: '#0f3a33', edge: '#2fd6a8', mark: '#c9fff1' },
+  };
+
+  function powerup(ctx, pu, now) {
+    const style = PU[pu.t] || PU[POWERUP.BOMBS];
+    const bob = Math.sin(now / 320 + pu.x * 1.7 + pu.y) * 1.5;
+    const px = (pu.x + 1) * T, py = (pu.y + 1) * T + bob;
+    const pad = 5, size = T - pad * 2;
+
+    ctx.fillStyle = style.plate;
+    ctx.fillRect(px + pad, py + pad, size, size);
+    ctx.strokeStyle = style.edge;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + pad + 1, py + pad + 1, size - 2, size - 2);
+
+    const cx = px + T / 2, cy = py + T / 2;
+    ctx.fillStyle = style.mark;
+    ctx.strokeStyle = style.mark;
+    ctx.lineWidth = 2;
+    if (pu.t === POWERUP.BOMBS) {
+      // two stacked bombs
+      ctx.beginPath(); ctx.arc(cx - 3, cy + 2, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + 4, cy - 2, 3, 0, Math.PI * 2); ctx.fill();
+    } else if (pu.t === POWERUP.RANGE) {
+      // outward arrows
+      ctx.beginPath();
+      ctx.moveTo(cx - 7, cy); ctx.lineTo(cx + 7, cy);
+      ctx.moveTo(cx, cy - 7); ctx.lineTo(cx, cy + 7);
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // double chevron
+      ctx.beginPath();
+      ctx.moveTo(cx - 6, cy - 5); ctx.lineTo(cx - 1, cy); ctx.lineTo(cx - 6, cy + 5);
+      ctx.moveTo(cx + 1, cy - 5); ctx.lineTo(cx + 6, cy); ctx.lineTo(cx + 1, cy + 5);
+      ctx.stroke();
+    }
+  }
+
   function flame(ctx, i, n) {
     const px = (i % n + 1) * T, py = (Math.floor(i / n) + 1) * T;
     ctx.fillStyle = '#ff6a00'; ctx.fillRect(px + 1, py + 1, T - 2, T - 2);
@@ -102,6 +146,7 @@ const Render = (() => {
         else floor(ctx, px, py, (x + y) % 2 === 0);
       }
     }
+    for (const pu of g.powerups) powerup(ctx, pu, now);
     for (const b of g.bombs) bomb(ctx, b, now);
     for (const i of g.flames) flame(ctx, i, n);
     for (const p of g.players.values()) {

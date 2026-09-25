@@ -1,4 +1,4 @@
-const { CONFIG, TILE, spawnPoints, collides } = require('../public/shared.js');
+const { CONFIG, TILE, POWERUP_TYPES, baseStats, applyPowerup, spawnPoints, collides } = require('../public/shared.js');
 
 const TICK_MS = 1000 / 30;
 const COLORS = ['#f5f5f5', '#222222', '#3b82f6', '#ef4444'];
@@ -94,6 +94,7 @@ class Room {
         id: p.id, name: p.name, color: COLORS[i % COLORS.length],
         x: spawns[i].x + 0.5, y: spawns[i].y + 0.5,
         alive: true, activeBombs: 0, lastMoveAt: 0,
+        ...baseStats(cfg),
       });
     });
 
@@ -103,8 +104,10 @@ class Room {
       grid: generateMap(cfg),
       gridDirty: false,
       players,
-      bombs: new Map(),  // tile index -> { x, y, owner, explodeAt }
+      bombs: new Map(),  // tile index -> { x, y, owner, explodeAt, range }
       flames: [],        // { tiles: [index], until }
+      powerups: new Map(),    // tile index -> POWERUP type; lies there until walked over
+      powerupsDirty: false,
       startAt: Date.now() + cfg.COUNTDOWN,
       over: false,
     };
@@ -128,7 +131,7 @@ class Room {
     // Light sanity check: reject teleports and walking into walls/blocks.
     const now = Date.now();
     const elapsed = Math.min(now - (p.lastMoveAt || now - TICK_MS), 500) / 1000;
-    const maxDist = m.cfg.PLAYER_SPEED * elapsed * 1.5 + 0.25;
+    const maxDist = p.speed * elapsed * 1.5 + 0.25;
     const dist = Math.hypot(pos.x - p.x, pos.y - p.y);
     if (dist > maxDist || collides(m.grid, m.n, pos.x, pos.y, m.cfg.PLAYER_SIZE, null)) {
       this.io.to(id).emit('correction', { x: p.x, y: p.y });
@@ -144,11 +147,13 @@ class Room {
     const m = this.match;
     if (!m || m.over || Date.now() < m.startAt) return;
     const p = m.players.get(id);
-    if (!p || !p.alive || p.activeBombs >= m.cfg.MAX_BOMBS) return;
+    if (!p || !p.alive || p.activeBombs >= p.maxBombs) return;
     const tx = Math.floor(p.x), ty = Math.floor(p.y);
     const i = ty * m.n + tx;
     if (m.bombs.has(i)) return;
-    m.bombs.set(i, { x: tx, y: ty, owner: id, explodeAt: Date.now() + m.cfg.FUSE_TIME });
+    // Range is fixed when the bomb is laid, so a bomb's reach can't change under
+    // the player -- and it still resolves correctly if the owner is gone by then.
+    m.bombs.set(i, { x: tx, y: ty, owner: id, explodeAt: Date.now() + m.cfg.FUSE_TIME, range: p.blastRange });
     p.activeBombs++;
   }
 
@@ -172,12 +177,28 @@ class Room {
       if (p.alive && burning.has(Math.floor(p.y) * m.n + Math.floor(p.x))) p.alive = false;
     }
 
+    // Powerups sit in their own map, so blasts never touch them -- only walking
+    // over one picks it up, and only the living can do that.
+    for (const p of m.players.values()) {
+      if (!p.alive) continue;
+      const i = Math.floor(p.y) * m.n + Math.floor(p.x);
+      const type = m.powerups.get(i);
+      if (type === undefined) continue;
+      m.powerups.delete(i);
+      m.powerupsDirty = true;
+      applyPowerup(p, type, m.cfg);   // a capped stat swallows it with no effect
+    }
+
     const state = {
       players: [...m.players.values()].map(publicPlayer),
       bombs: [...m.bombs.values()].map(b => ({ x: b.x, y: b.y, explodeAt: b.explodeAt - now })),
       flames: [...burning],
     };
     if (m.gridDirty) { state.grid = m.grid.join(''); m.gridDirty = false; }
+    if (m.powerupsDirty) {
+      state.powerups = [...m.powerups].map(([i, t]) => ({ x: i % m.n, y: (i / m.n) | 0, t }));
+      m.powerupsDirty = false;
+    }
     this.io.to(this.code).emit('state', state);
 
     this.checkGameOver();
@@ -191,7 +212,7 @@ class Room {
 
     const tiles = [index];
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      for (let r = 1; r <= m.cfg.BLAST_RANGE; r++) {
+      for (let r = 1; r <= bomb.range; r++) {
         const x = bomb.x + dx * r, y = bomb.y + dy * r;
         if (x < 0 || y < 0 || x >= m.n || y >= m.n) break;
         const i = y * m.n + x;
@@ -200,6 +221,10 @@ class Room {
         if (m.grid[i] === TILE.SOFT) {
           m.grid[i] = TILE.EMPTY;
           m.gridDirty = true;
+          if (Math.random() < m.cfg.POWERUP_DROP_CHANCE) {
+            m.powerups.set(i, POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)]);
+            m.powerupsDirty = true;
+          }
           break;
         }
       }
@@ -232,7 +257,10 @@ class Room {
 }
 
 function publicPlayer(p) {
-  return { id: p.id, name: p.name, color: p.color, x: p.x, y: p.y, alive: p.alive };
+  return {
+    id: p.id, name: p.name, color: p.color, x: p.x, y: p.y, alive: p.alive,
+    maxBombs: p.maxBombs, blastRange: p.blastRange, speed: p.speed, levels: p.levels,
+  };
 }
 
 module.exports = { Room };

@@ -1,5 +1,5 @@
 (() => {
-  const { stepPlayer, overlappedTiles } = Shared;
+  const { stepPlayer, overlappedTiles, POWERUP } = Shared;
   const socket = io(window.SERVER_URL || undefined);
   const $ = id => document.getElementById(id);
 
@@ -143,6 +143,8 @@
       bombs: [],
       bombTiles: new Set(),
       flames: [],
+      powerups: [],
+      hudSig: '',
       passable: new Set(),   // bombs I'm standing on and may walk off of
       startAt: performance.now() + data.countdown,
       lastSent: 0,
@@ -160,14 +162,19 @@
     if (!game) return;
     const now = performance.now();
     if (s.grid) game.grid = [...s.grid].map(Number);
+    if (s.powerups) game.powerups = s.powerups;
     game.flames = s.flames;
 
     for (const sp of s.players) {
       const p = game.players.get(sp.id);
       if (!p) continue;
-      if (p.alive !== sp.alive) { p.alive = sp.alive; renderHud(); }
+      p.alive = sp.alive;
+      // Stats change when a powerup is picked up; my own speed feeds prediction below.
+      p.maxBombs = sp.maxBombs; p.blastRange = sp.blastRange; p.speed = sp.speed; p.levels = sp.levels;
       if (sp.id !== myId) { p.x = sp.x; p.y = sp.y; }
     }
+    const sig = s.players.map(p => `${p.id}${p.alive}${p.maxBombs}${p.blastRange}${p.speed}`).join('|');
+    if (sig !== game.hudSig) { game.hudSig = sig; renderHud(); }
 
     // Any bomb that appears under me is one I'm allowed to walk off of.
     const me = game.players.get(myId);
@@ -210,6 +217,23 @@
       sw.className = 'swatch';
       sw.style.background = p.color;
       el.append(sw, p.name + (p.id === myId ? ' (you)' : ''));
+
+      const stats = document.createElement('span');
+      stats.className = 'stats';
+      const max = game.cfg.MAX_POWERUP_LEVEL;
+      const lv = p.levels || {};
+      for (const [type, value] of [
+        [POWERUP.BOMBS, p.maxBombs],
+        [POWERUP.RANGE, p.blastRange],
+        [POWERUP.SPEED, `${(1 + game.cfg.SPEED_STEP * (lv[POWERUP.SPEED] || 0)).toFixed(1)}\u00d7`],
+      ]) {
+        const chip = document.createElement('span');
+        chip.className = `stat ${type}` + ((lv[type] || 0) >= max ? ' maxed' : '');
+        chip.title = `${type} \u2014 level ${lv[type] || 0} of ${max}`;
+        chip.textContent = value;
+        stats.appendChild(chip);
+      }
+      el.appendChild(stats);
       $('hud').appendChild(el);
     }
   }
@@ -238,7 +262,9 @@
           <span><kbd>SPACE</kbd></span><span>Drop a bomb</span>
         </div>
         <p class="hint">Blow up the bricks and catch your opponent in a blast.<br>
-          Bombs explode after ${(c.FUSE_TIME / 1000).toFixed(1)}s · range ${c.BLAST_RANGE} · max ${c.MAX_BOMBS} at a time</p>`);
+          Bombs explode after ${(c.FUSE_TIME / 1000).toFixed(1)}s · range ${c.BLAST_RANGE} · max ${c.MAX_BOMBS} at a time<br>
+          Bricks can drop powerups — <b class="pu-bombs">more bombs</b>,
+          <b class="pu-range">bigger blast</b>, <b class="pu-speed">more speed</b></p>`);
       setTimeout(tick, 100);
     };
     tick();
@@ -308,7 +334,7 @@
 
       stepPlayer(me, DIRS[keys[keys.length - 1]], dt, {
         grid: game.grid, n: game.n, bombs: blocking,
-        speed: game.cfg.PLAYER_SPEED, size: game.cfg.PLAYER_SIZE,
+        speed: me.speed || game.cfg.PLAYER_SPEED, size: game.cfg.PLAYER_SIZE,
       });
     }
 

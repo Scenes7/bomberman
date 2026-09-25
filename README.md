@@ -19,6 +19,12 @@ All gameplay numbers are in `CONFIG` at the top of `public/shared.js`:
 map density, etc. The server sends its values to clients when a match starts,
 so just edit and restart the server.
 
+Powerups are tuned there too: `POWERUP_DROP_CHANCE` (odds a destroyed block leaves
+one), `MAX_POWERUP_LEVEL` (how many times each stat can be raised) and `SPEED_STEP`.
+Players start at `MAX_BOMBS` bombs and `BLAST_RANGE` reach and upgrade from there;
+speed stacks on the base rather than compounding, so the level cap is a 2.4x sprint
+rather than a 3.6x one.
+
 ## Deployment
 
 - **Frontend** — GitHub Pages via `.github/workflows/pages.yml` (Settings → Pages → Source:
