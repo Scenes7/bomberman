@@ -156,15 +156,18 @@ class Room {
     const m = this.match;
     const now = Date.now();
 
-    // Detonate due bombs; flames that reach other bombs set them off in the same tick.
-    let due;
-    while ((due = [...m.bombs.entries()].find(([, b]) => b.explodeAt <= now))) {
-      this.explode(due[0], due[1], now);
-    }
+    // Tiles still alight from earlier ticks.
     m.flames = m.flames.filter(f => f.until > now);
-
     const burning = new Set();
     for (const f of m.flames) for (const t of f.tiles) burning.add(t);
+
+    // A bomb goes off when its fuse runs out, or the moment a blast covers its tile --
+    // whether that blast is from this tick or still burning from an earlier one. Each
+    // explosion feeds its tiles back into `burning`, so chains resolve in this one pass.
+    let due;
+    while ((due = [...m.bombs.entries()].find(([i, b]) => b.explodeAt <= now || burning.has(i)))) {
+      for (const t of this.explode(due[0], due[1], now)) burning.add(t);
+    }
     for (const p of m.players.values()) {
       if (p.alive && burning.has(Math.floor(p.y) * m.n + Math.floor(p.x))) p.alive = false;
     }
@@ -199,11 +202,10 @@ class Room {
           m.gridDirty = true;
           break;
         }
-        const other = m.bombs.get(i);
-        if (other) other.explodeAt = now;
       }
     }
     m.flames.push({ tiles, until: now + m.cfg.EXPLOSION_DURATION });
+    return tiles;
   }
 
   checkGameOver() {

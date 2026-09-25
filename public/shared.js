@@ -9,7 +9,7 @@
     GRID_SIZE: 20,           // map is GRID_SIZE x GRID_SIZE tiles
     PLAYER_SPEED: 4,         // tiles per second
     FUSE_TIME: 2500,         // ms from placing a bomb to explosion
-    MAX_BOMBS: 1,            // bombs a player can have on the map at once
+    MAX_BOMBS: 2,            // bombs a player can have on the map at once
     BLAST_RANGE: 2,          // tiles the flame reaches in each direction
     EXPLOSION_DURATION: 500, // ms flames stay deadly
     COUNTDOWN: 5000,         // ms of frozen "get ready" time at match start
