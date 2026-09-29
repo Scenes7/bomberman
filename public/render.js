@@ -2,7 +2,7 @@
 // inside a one-tile border of hard walls.
 const Render = (() => {
   const T = 32;
-  const { TILE, POWERUP } = Shared;
+  const { TILE, POWERUP, PALETTES } = Shared;
 
   function setup(canvas, n) {
     canvas.width = canvas.height = (n + 2) * T;
@@ -105,11 +105,19 @@ const Render = (() => {
     ctx.fillStyle = '#fff7cf'; ctx.fillRect(px + 11, py + 11, T - 22, T - 22);
   }
 
-  function player(ctx, p, isMe) {
+  function player(ctx, p, isMe, teamed) {
     const cx = (p.x + 1) * T, cy = (p.y + 1) * T;
     ctx.globalAlpha = p.alive ? 1 : 0.3;
+    // Team ring: the avatar's own shade already comes from the team palette, but with
+    // eight shades per side a ring in the canonical colour keeps sides readable.
+    const ring = teamed && p.team && PALETTES[p.team] ? PALETTES[p.team][0] : null;
+    if (ring) {
+      ctx.strokeStyle = ring;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy + 1, T * 0.44, 0, Math.PI * 2); ctx.stroke();
+    }
     // body
-    ctx.fillStyle = p.color;
+    ctx.fillStyle = (p.appearance && p.appearance.color) || p.color || '#888';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy + 5, T * 0.26, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     // head
@@ -149,12 +157,13 @@ const Render = (() => {
     for (const pu of g.powerups) powerup(ctx, pu, now);
     for (const b of g.bombs) bomb(ctx, b, now);
     for (const i of g.flames) flame(ctx, i, n);
+    const teamed = !!g.teams;
     for (const p of g.players.values()) {
       if (p.id === myId) continue;
-      player(ctx, { ...p, x: p.rx, y: p.ry }, false);
+      player(ctx, { ...p, x: p.rx, y: p.ry }, false, teamed);
     }
     const me = g.players.get(myId);
-    if (me) player(ctx, me, true);
+    if (me) player(ctx, me, true, teamed);
   }
 
   return { setup, draw };

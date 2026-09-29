@@ -1,6 +1,6 @@
 # Bomberman
 
-Online Bomberman for 2-4 players. Static frontend (HTML / vanilla JS / CSS) in `public/`,
+Online Bomberman, free-for-all or Red vs Blue. Static frontend (HTML / vanilla JS / CSS) in `public/`,
 Node + socket.io server in `server/`, packaged with Docker for AWS Lightsail.
 
 ## Run locally
@@ -11,7 +11,17 @@ npm start          # http://localhost:3000
 ```
 
 Create a lobby, copy the link, and open it in other browser windows (or send it to friends).
-Up to four play at once, one per corner of the map; the host can start once two have joined.
+The host picks the mode when creating the lobby and can change it until the match starts.
+
+| Mode | Players | Spawns | Win |
+| --- | --- | --- | --- |
+| Free-for-all | 2-4 | one per map corner | last player alive |
+| Teams | 2-8 | red along the top row, blue along the bottom | last team with anyone alive |
+
+In team mode each player picks their own side, uneven teams are fine, powerup tiers are
+shared by the whole team, and friendly fire is on. A player who is knocked out keeps
+watching and only sees the result once their whole team is gone. The host can't switch a
+lobby back to free-for-all while more than four people are in it.
 
 ## Tuning
 
@@ -26,8 +36,25 @@ Players start at `MAX_BOMBS` bombs and `BLAST_RANGE` reach and upgrade from ther
 speed stacks on the base rather than compounding, so the level cap is a 2.4x sprint
 rather than a 3.6x one.
 
-`MAX_PLAYERS` is capped by `spawnPoints()` in the same file, which hands out one map
-corner per player -- raising it past 4 means giving it more spawns to hand out.
+## Adding a game mode
+
+Modes live in one table, `MODES` in `public/shared.js`. An entry owns everything that
+varies between them, so a new mode is additive rather than a rewrite:
+
+- `maxPlayers` -- the seat cap (the lobby and the join check both read it from here)
+- `teams` -- the list of sides, or `null` when every player is their own side
+- `spawns(n, roster)` -- one position per player, in join order
+- `clearZones(n)` -- tiles the map generator must leave walkable
+
+Three shared helpers then do the rest: `factionOf` decides who counts as a side when
+working out the winner, `statsKeyFor` decides who shares powerup tiers (teammates share
+one key, so they share one stats block), and `startBlocker` says why a lobby can't start
+yet. The client builds its mode picker from the list the server sends, so a new mode shows
+up in the UI without a client change.
+
+Player looks come from `appearanceFor(mode, team, seat)`, which returns an object rather
+than a bare colour -- avatar options (hats, faces, trails) can be added to it without
+touching the renderer's call sites.
 
 ## Deployment
 

@@ -5,6 +5,8 @@
   --muted: #9aa3ae;
   --accent: #f5b301;
   --danger: #ff6b6b;
+  --red: #ef4444;
+  --blue: #3b82f6;
   --pixel: 'Press Start 2P', monospace;
 }
 
@@ -92,7 +94,8 @@ button.primary { background: var(--accent); color: #1a1a1a; }
    create path and the code box (already filled in from the link) drop away. */
 #screen-home.invited #create,
 #screen-home.invited #or-divider,
-#screen-home.invited #code { display: none; }
+#screen-home.invited #code,
+#screen-home.invited #create-mode { display: none; }
 #screen-home.invited #join { flex: 1; }
 .hint .code {
   font-family: var(--pixel);
@@ -100,6 +103,27 @@ button.primary { background: var(--accent); color: #1a1a1a; }
   letter-spacing: 0.1em;
   white-space: nowrap;
 }
+
+/* Mode and team pickers: a row of toggles that wraps on narrow screens. */
+.pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick button { flex: 1 1 auto; }
+.pick button.on { background: var(--accent); color: #1a1a1a; }
+.pick button:disabled { opacity: 0.35; }
+
+.team-btn.red.on { background: var(--red); color: #1a1a1a; }
+.team-btn.blue.on { background: var(--blue); color: #1a1a1a; }
+
+.team-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  margin-right: 8px;
+  border: 1px solid #0007;
+}
+.team-dot.red { background: var(--red); }
+.team-dot.blue { background: var(--blue); }
+
+#player-list li { align-items: center; }
 
 .error { color: var(--danger); min-height: 1.2em; margin: 0; }
 .hint { color: var(--muted); margin: 0; text-align: center; }
@@ -127,6 +151,25 @@ button.primary { background: var(--accent); color: #1a1a1a; }
   font-size: 11px;
   max-width: 92vw;
 }
+.hud-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #1e2128;
+}
+.hud-group.out { opacity: 0.4; }
+.team-tag {
+  font-size: 9px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  color: #1a1a1a;
+}
+.team-tag.red { background: var(--red); }
+.team-tag.blue { background: var(--blue); }
+
 .hud-player { display: flex; align-items: center; gap: 8px; }
 .hud-player.dead { opacity: 0.35; text-decoration: line-through; }
 .swatch { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #000; }
@@ -159,6 +202,25 @@ button.primary { background: var(--accent); color: #1a1a1a; }
   border-radius: 6px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
+
+#eliminated {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: var(--pixel);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+  color: #ffd9a0;
+  background: rgba(12, 14, 18, 0.88);
+  border: 1px solid #ff8a3c;
+  border-radius: 6px;
+  padding: 6px 10px;
+  max-width: 90%;
+}
+#eliminated[hidden] { display: none; }
 
 #overlay {
   position: absolute;

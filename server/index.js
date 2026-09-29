@@ -2,7 +2,6 @@ const path = require('path');
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
-const { CONFIG } = require('../public/shared.js');
 const { Room } = require('./game.js');
 
 const PORT = process.env.PORT || 3000;
@@ -35,18 +34,22 @@ function cleanName(name) {
 io.on('connection', socket => {
   let room = null;
 
-  const join = (r, name) => {
+  // `ack` runs before the room is told, so the client knows its own id before any
+  // lobby payload arrives and can render "you", HOST and team state correctly.
+  const join = (r, name, ack, extra) => {
     room = r;
     socket.join(r.code);
+    ack({ ok: true, code: r.code, id: socket.id, ...extra });
     r.addPlayer(socket.id, cleanName(name));
   };
 
-  socket.on('createLobby', ({ name } = {}, ack) => {
+  socket.on('createLobby', ({ name, mode } = {}, ack) => {
     if (room || typeof ack !== 'function') return;
     const r = new Room(newCode(), io);
     rooms.set(r.code, r);
-    join(r, name);
-    ack({ ok: true, code: r.code, id: socket.id });
+    // The host may pick the mode up front; an unknown value just leaves the default.
+    if (mode) r.setMode(String(mode));
+    join(r, name, ack);
   });
 
   socket.on('joinLobby', ({ code, name } = {}, ack) => {
@@ -54,14 +57,25 @@ io.on('connection', socket => {
     const r = rooms.get(String(code || '').toUpperCase().trim());
     if (!r) return ack({ ok: false, error: 'Lobby not found.' });
     if (r.state !== 'lobby') return ack({ ok: false, error: 'That match is already in progress.' });
-    if (r.players.size >= CONFIG.MAX_PLAYERS) return ack({ ok: false, error: 'Lobby is full.' });
-    join(r, name);
-    ack({ ok: true, code: r.code, id: socket.id });
+    if (r.players.size >= r.mode.maxPlayers) return ack({ ok: false, error: 'Lobby is full.' });
+    join(r, name, ack);
+  });
+
+  // Host-only lobby settings.
+  socket.on('setMode', ({ mode } = {}) => {
+    if (!room || room.hostId !== socket.id) return;
+    room.setMode(String(mode || ''));
+  });
+
+  // Any player picks their own team.
+  socket.on('setTeam', ({ team } = {}) => {
+    if (!room) return;
+    room.setTeam(socket.id, String(team || ''));
   });
 
   socket.on('startGame', () => {
     if (!room || room.hostId !== socket.id || room.state !== 'lobby') return;
-    if (room.players.size < 2) return;
+    if (room.startBlocker()) return;
     room.start();
   });
 

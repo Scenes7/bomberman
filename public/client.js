@@ -1,5 +1,5 @@
 (() => {
-  const { stepPlayer, overlappedTiles, POWERUP } = Shared;
+  const { stepPlayer, overlappedTiles, POWERUP, MODE, MODES } = Shared;
   const socket = io(window.SERVER_URL || undefined);
   const $ = id => document.getElementById(id);
 
@@ -60,11 +60,32 @@
     myId = res.id;
     history.replaceState(null, '', `?lobby=${res.code}`);
     show('lobby');
+    // The lobby broadcast can arrive before this ack, in which case it was painted
+    // without knowing which player is us. Repaint now that we do.
+    paintLobby(lobby);
   }
+
+  // Mode picker on the home screen. Built from the shared mode table, so a new mode
+  // shows up here without touching this code.
+  let createMode = MODE.FFA;
+  const createModeBox = $('create-mode-buttons');
+  for (const m of Object.values(MODES)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.mode = m.id;
+    b.textContent = m.label;
+    b.onclick = () => { createMode = m.id; paintCreateMode(); };
+    createModeBox.appendChild(b);
+  }
+  function paintCreateMode() {
+    for (const b of createModeBox.children) b.classList.toggle('on', b.dataset.mode === createMode);
+    $('create-mode-note').textContent = MODES[createMode].blurb;
+  }
+  paintCreateMode();
 
   const createLobby = () => {
     $('home-error').textContent = '';
-    socket.emit('createLobby', { name: playerName() }, entered);
+    socket.emit('createLobby', { name: playerName(), mode: createMode }, entered);
   };
   $('create').onclick = createLobby;
   $('create-instead').onclick = () => { setInvited(false); createLobby(); };
@@ -77,39 +98,99 @@
   nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') $(invited ? 'join' : 'create').click(); });
 
   // ---------- lobby ----------
-  socket.on('lobby', data => {
-    lobby = data;
+  socket.on('lobby', data => { lobby = data; paintLobby(data); });
+
+  function paintLobby(data) {
+    if (!data) return;
     $('lobby-code').textContent = data.code;
     $('link').value = `${location.origin}${location.pathname}?lobby=${data.code}`;
 
+    const isHost = data.hostId === myId;
+    renderModePicker(data, isHost);
+    renderPlayerList(data);
+    renderTeamPicker(data);
+
+    $('start').hidden = !isHost;
+    $('start').disabled = !!data.blocker;
+    $('lobby-status').textContent = data.blocker ? data.blocker
+      : isHost ? 'Everyone is here. Start when ready!'
+      : 'Waiting for the host to start…';
+  }
+
+  // One button per mode the server offers. A mode that cannot seat everyone already
+  // in the lobby comes back unavailable, which is what stops a 5+ player team lobby
+  // from dropping to free-for-all.
+  function renderModePicker(data, isHost) {
+    const current = data.modes.find(m => m.id === data.mode) || { label: data.mode, blurb: '' };
+    $('mode-label').textContent = current.label;
+    $('mode-note').textContent = current.blurb;
+    const box = $('mode-buttons');
+    box.hidden = !isHost;
+    box.innerHTML = '';
+    if (!isHost) return;
+    for (const m of data.modes) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const active = m.id === data.mode;
+      b.className = active ? 'on' : '';
+      b.textContent = m.label;
+      b.disabled = !m.available && !active;
+      b.title = b.disabled ? `Too many players for ${m.label} (max ${m.maxPlayers}).` : m.blurb;
+      b.onclick = () => socket.emit('setMode', { mode: m.id });
+      box.appendChild(b);
+    }
+  }
+
+  // Filled seats, grouped by team when there are teams, then a single line for the
+  // room that's left -- eight "waiting" rows would just be noise.
+  function renderPlayerList(data) {
     const list = $('player-list');
     list.innerHTML = '';
-    for (let i = 0; i < data.maxPlayers; i++) {
-      const p = data.players[i];
+    const ordered = data.teams
+      ? data.teams.flatMap(t => data.players.filter(p => p.team === t))
+      : data.players;
+    for (const p of ordered) {
       const li = document.createElement('li');
-      if (p) {
-        li.textContent = p.name + (p.id === myId ? ' (you)' : '');
-        if (p.id === data.hostId) {
-          const tag = document.createElement('span');
-          tag.className = 'tag';
-          tag.textContent = 'HOST';
-          li.appendChild(tag);
-        }
-      } else {
-        li.className = 'empty';
-        li.textContent = 'Waiting for player…';
+      if (data.teams) {
+        const dot = document.createElement('span');
+        dot.className = `team-dot ${p.team}`;
+        li.appendChild(dot);
+      }
+      li.appendChild(document.createTextNode(p.name + (p.id === myId ? ' (you)' : '')));
+      if (p.id === data.hostId) {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = 'HOST';
+        li.appendChild(tag);
       }
       list.appendChild(li);
     }
+    const room = data.maxPlayers - data.players.length;
+    if (room > 0) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = `Waiting for players… room for ${room} more`;
+      list.appendChild(li);
+    }
+  }
 
-    const isHost = data.hostId === myId;
-    const ready = data.players.length >= 2;
-    $('start').hidden = !isHost;
-    $('start').disabled = !ready;
-    $('lobby-status').textContent = !ready ? 'Share the link — the match can start once 2 players are here.'
-      : isHost ? 'Everyone is here. Start when ready!'
-      : 'Waiting for the host to start…';
-  });
+  function renderTeamPicker(data) {
+    $('team-picker').hidden = !data.teams;
+    const box = $('team-buttons');
+    box.innerHTML = '';
+    if (!data.teams) return;
+    const me = data.players.find(p => p.id === myId);
+    for (const t of data.teams) {
+      const count = data.players.filter(p => p.team === t).length;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.team = t;
+      b.className = `team-btn ${t}` + (me && me.team === t ? ' on' : '');
+      b.textContent = `${t.toUpperCase()} (${count})`;
+      b.onclick = () => socket.emit('setTeam', { team: t });
+      box.appendChild(b);
+    }
+  }
 
   $('copy').onclick = async () => {
     try { await navigator.clipboard.writeText($('link').value); }
@@ -137,6 +218,8 @@
     const n = data.config.GRID_SIZE;
     game = {
       cfg: data.config,
+      mode: data.mode,
+      teams: data.teams || null,
       n,
       grid: [...data.grid].map(Number),
       players: new Map(data.players.map(p => [p.id, { ...p, rx: p.x, ry: p.y }])),
@@ -152,6 +235,7 @@
       over: false,
     };
     keys.length = 0;
+    $('eliminated').hidden = true;
     Render.setup(canvas, n);
     renderHud();
     show('game');
@@ -189,8 +273,15 @@
     game.bombs = s.bombs.map(b => ({ ...b, explodeAt: now + b.explodeAt }));
 
     if (me && !me.alive && !game.over) {
-      game.over = true;
-      setTimeout(() => showResult({ lost: true }), 700);
+      // In a team match, being knocked out isn't the end of the match: keep watching
+      // and only show the result once the whole team is gone.
+      if (teamStillFighting(me)) {
+        $('eliminated').textContent = 'You were eliminated \u2014 your team is still in it';
+        $('eliminated').hidden = false;
+      } else {
+        game.over = true;
+        setTimeout(() => showResult({ lost: true }), 700);
+      }
     }
   });
 
@@ -199,42 +290,75 @@
     if (me) { me.x = pos.x; me.y = pos.y; }
   });
 
-  socket.on('gameOver', ({ winnerId, winnerName }) => {
+  function teamStillFighting(me) {
+    if (!game.teams || !me.team) return false;
+    return [...game.players.values()].some(p => p.team === me.team && p.alive);
+  }
+
+  socket.on('gameOver', ({ winnerId, winnerName, winnerTeam }) => {
     if (!game) return;
     game.over = true;
-    const result = winnerId === myId ? { won: true }
+    $('eliminated').hidden = true;
+    const me = game.players.get(myId);
+    const result = winnerTeam ? (me && me.team === winnerTeam
+        ? { won: true, team: winnerTeam }
+        : { lost: true, team: winnerTeam })
       : winnerId === null ? { draw: true }
+      : winnerId === myId ? { won: true }
       : { lost: true, winnerName };
     setTimeout(() => showResult(result), 700);
   });
 
-  function renderHud() {
-    $('hud').innerHTML = '';
-    for (const p of game.players.values()) {
-      const el = document.createElement('div');
-      el.className = 'hud-player' + (p.alive ? '' : ' dead');
-      const sw = document.createElement('span');
-      sw.className = 'swatch';
-      sw.style.background = p.color;
-      el.append(sw, p.name + (p.id === myId ? ' (you)' : ''));
+  // Powerup tiers, read off any member of the side that owns them.
+  function statChips(source) {
+    const stats = document.createElement('span');
+    stats.className = 'stats';
+    const max = game.cfg.MAX_POWERUP_LEVEL;
+    const lv = source.levels || {};
+    for (const [type, value] of [
+      [POWERUP.BOMBS, source.maxBombs],
+      [POWERUP.RANGE, source.blastRange],
+      [POWERUP.SPEED, lv[POWERUP.SPEED] || 0],
+    ]) {
+      const chip = document.createElement('span');
+      chip.className = `stat ${type}` + ((lv[type] || 0) >= max ? ' maxed' : '');
+      chip.title = `${type} — level ${lv[type] || 0} of ${max}`;
+      chip.textContent = value;
+      stats.appendChild(chip);
+    }
+    return stats;
+  }
 
-      const stats = document.createElement('span');
-      stats.className = 'stats';
-      const max = game.cfg.MAX_POWERUP_LEVEL;
-      const lv = p.levels || {};
-      for (const [type, value] of [
-        [POWERUP.BOMBS, p.maxBombs],
-        [POWERUP.RANGE, p.blastRange],
-        [POWERUP.SPEED, lv[POWERUP.SPEED] || 0],
-      ]) {
-        const chip = document.createElement('span');
-        chip.className = `stat ${type}` + ((lv[type] || 0) >= max ? ' maxed' : '');
-        chip.title = `${type} \u2014 level ${lv[type] || 0} of ${max}`;
-        chip.textContent = value;
-        stats.appendChild(chip);
+  function renderHud() {
+    const hud = $('hud');
+    hud.innerHTML = '';
+    // One block per side. In a team mode the tiers are shared, so the chips belong to
+    // the team and are shown once rather than repeated under every member.
+    const groups = game.teams
+      ? game.teams.map(t => ({ label: t, players: [...game.players.values()].filter(p => p.team === t) }))
+      : [...game.players.values()].map(p => ({ label: null, players: [p] }));
+
+    for (const g of groups) {
+      if (!g.players.length) continue;
+      const el = document.createElement('div');
+      el.className = 'hud-group' + (g.players.some(p => p.alive) ? '' : ' out');
+      if (g.label) {
+        const tag = document.createElement('span');
+        tag.className = `team-tag ${g.label}`;
+        tag.textContent = g.label.toUpperCase();
+        el.appendChild(tag);
       }
-      el.appendChild(stats);
-      $('hud').appendChild(el);
+      for (const p of g.players) {
+        const who = document.createElement('span');
+        who.className = 'hud-player' + (p.alive ? '' : ' dead');
+        const sw = document.createElement('span');
+        sw.className = 'swatch';
+        sw.style.background = (p.appearance && p.appearance.color) || '#888';
+        who.append(sw, p.name + (p.id === myId ? ' (you)' : ''));
+        el.appendChild(who);
+      }
+      el.appendChild(statChips(g.players[0]));
+      hud.appendChild(el);
     }
   }
 
@@ -264,15 +388,21 @@
         <p class="hint">Blow up the bricks and catch your opponent in a blast.<br>
           Bombs explode after ${(c.FUSE_TIME / 1000).toFixed(1)}s · range ${c.BLAST_RANGE} · max ${c.MAX_BOMBS} at a time<br>
           Bricks can drop powerups — <b class="pu-bombs">more bombs</b>,
-          <b class="pu-range">bigger blast</b>, <b class="pu-speed">more speed</b></p>`);
+          <b class="pu-range">bigger blast</b>, <b class="pu-speed">more speed</b>
+          ${game.teams ? '<br>Powerups are shared with your team — and friendly fire is on.' : ''}</p>`);
       setTimeout(tick, 100);
     };
     tick();
   }
 
-  function showResult({ won, draw, lost, winnerName }) {
-    if (won) overlay('<div class="big">YOU WIN!</div><p>Last one standing.</p>');
-    else if (draw) overlay('<div class="big lose">DRAW</div><p>Nobody survived.</p>');
+  function showResult({ won, draw, lost, winnerName, team }) {
+    const teamName = team ? escapeHtml(team.toUpperCase()) : null;
+    if (won) {
+      overlay(teamName
+        ? `<div class="big">${teamName} WINS!</div><p>Your team took it.</p>`
+        : '<div class="big">YOU WIN!</div><p>Last one standing.</p>');
+    } else if (draw) overlay('<div class="big lose">DRAW</div><p>Nobody survived.</p>');
+    else if (teamName) overlay(`<div class="big lose">${teamName} WINS</div><p>Your team was wiped out.</p>`);
     else overlay(`<div class="big lose">GAME OVER</div><p>${winnerName ? `${escapeHtml(winnerName)} wins.` : 'You got blown up.'}</p>`);
     const btn = document.createElement('button');
     btn.className = 'primary';

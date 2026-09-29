@@ -6,6 +6,7 @@
   <title>Bomberman</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,6 +17,12 @@
       <p id="invite" class="hint" hidden></p>
       <label for="name">Your name</label>
       <input id="name" maxlength="16" placeholder="Guest" autocomplete="off">
+      <!-- Host picks the mode up front; buttons are built from Shared.MODES. -->
+      <div id="create-mode">
+        <label>Game mode</label>
+        <div class="pick" id="create-mode-buttons"></div>
+        <p id="create-mode-note" class="hint"></p>
+      </div>
       <button id="create" class="primary">Create lobby</button>
       <div class="divider" id="or-divider"><span>or join one</span></div>
       <div class="row">
@@ -37,7 +44,21 @@
         <input id="link" readonly>
         <button id="copy">Copy</button>
       </div>
+      <!-- Mode: everyone sees it, only the host can change it. -->
+      <div id="mode-picker">
+        <label>Game mode — <span id="mode-label"></span></label>
+        <div class="pick" id="mode-buttons"></div>
+        <p id="mode-note" class="hint"></p>
+      </div>
+
       <ul id="player-list"></ul>
+
+      <!-- Team: shown only in modes that have teams; each player picks their own. -->
+      <div id="team-picker" hidden>
+        <label>Your team</label>
+        <div class="pick" id="team-buttons"></div>
+      </div>
+
       <button id="start" class="primary">Start match</button>
       <p id="lobby-status" class="hint"></p>
     </div>
@@ -48,6 +69,8 @@
     <div id="hud"></div>
     <div class="stage">
       <canvas id="canvas"></canvas>
+      <!-- Small, non-blocking: a knocked-out player keeps watching their team play. -->
+      <div id="eliminated" hidden></div>
       <div id="overlay" hidden></div>
     </div>
   </section>
