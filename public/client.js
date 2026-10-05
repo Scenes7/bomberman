@@ -276,7 +276,7 @@
       // In a team match, being knocked out isn't the end of the match: keep watching
       // and only show the result once the whole team is gone.
       if (teamStillFighting(me)) {
-        $('eliminated').textContent = 'You were eliminated \u2014 your team is still in it';
+        $('eliminated').textContent = 'You were eliminated \~ your team is still in it';
         $('eliminated').hidden = false;
       } else {
         game.over = true;
@@ -322,7 +322,7 @@
     ]) {
       const chip = document.createElement('span');
       chip.className = `stat ${type}` + ((lv[type] || 0) >= max ? ' maxed' : '');
-      chip.title = `${type} — level ${lv[type] || 0} of ${max}`;
+      chip.title = `${type} ~ level ${lv[type] || 0} of ${max}`;
       chip.textContent = value;
       stats.appendChild(chip);
     }
@@ -387,9 +387,9 @@
         </div>
         <p class="hint">Blow up the bricks and catch your opponent in a blast.<br>
           Bombs explode after ${(c.FUSE_TIME / 1000).toFixed(1)}s · range ${c.BLAST_RANGE} · max ${c.MAX_BOMBS} at a time<br>
-          Bricks can drop powerups — <b class="pu-bombs">more bombs</b>,
+          Bricks can drop powerups ~ <b class="pu-bombs">more bombs</b>,
           <b class="pu-range">bigger blast</b>, <b class="pu-speed">more speed</b>
-          ${game.teams ? '<br>Powerups are shared with your team — and friendly fire is on.' : ''}</p>`);
+          ${game.teams ? '<br>Powerups are shared with your team ~ and friendly fire is on.' : ''}</p>`);
       setTimeout(tick, 100);
     };
     tick();
@@ -399,10 +399,10 @@
     const teamName = team ? escapeHtml(team.toUpperCase()) : null;
     if (won) {
       overlay(teamName
-        ? `<div class="big">${teamName} WINS!</div><p>Your team took it.</p>`
+        ? `<div class="big team-${team}">${teamName} WINS!</div><p>Your team took it.</p>`
         : '<div class="big">YOU WIN!</div><p>Last one standing.</p>');
     } else if (draw) overlay('<div class="big lose">DRAW</div><p>Nobody survived.</p>');
-    else if (teamName) overlay(`<div class="big lose">${teamName} WINS</div><p>Your team was wiped out.</p>`);
+    else if (teamName) overlay(`<div class="big team-${team}">${teamName} WINS!</div><p>Your team was wiped out.</p>`);
     else overlay(`<div class="big lose">GAME OVER</div><p>${winnerName ? `${escapeHtml(winnerName)} wins.` : 'You got blown up.'}</p>`);
     const btn = document.createElement('button');
     btn.className = 'primary';

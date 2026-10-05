@@ -1,5 +1,5 @@
 // Shared between the browser and the Node server.
-// All gameplay tuning lives in CONFIG — the server sends its copy to clients
+// All gameplay tuning lives in CONFIG ~ the server sends its copy to clients
 // when a match starts, so editing it here (and restarting the server) is enough.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -147,7 +147,7 @@
     [MODE.FFA]: {
       id: MODE.FFA,
       label: 'Free-for-all',
-      blurb: 'Everyone for themselves \u2014 last one standing wins.',
+      blurb: 'Everyone for themselves \~ last one standing wins.',
       maxPlayers: 4,
       teams: null,                 // null = each player is their own side
       spawns: soloSpawns,
@@ -156,7 +156,7 @@
     [MODE.TEAM]: {
       id: MODE.TEAM,
       label: 'Teams',
-      blurb: 'Red vs Blue \u2014 powerups are shared and friendly fire is on.',
+      blurb: 'Red vs Blue \~ powerups are shared and friendly fire is on.',
       maxPlayers: 8,
       teams: TEAMS,
       spawns: teamSpawns,
@@ -180,7 +180,7 @@
 
   // Enough players, and at least two sides with someone on them.
   function startBlocker(mode, roster) {
-    if (roster.length < 2) return 'Waiting for one more player \u2014 two is the minimum.';
+    if (roster.length < 2) return 'Waiting for one more player \~ two is the minimum.';
     const sides = new Set(roster.map(p => factionOf(mode, p)));
     if (sides.size < 2) return 'Both teams need at least one player.';
     return null;
