@@ -440,6 +440,7 @@
   // Left half: a floating stick that spawns under the finger and stays anchored there
   // until it lifts. Movement is 4-way, so the dominant axis picks the direction.
   const joy = $('joy'), knob = $('joy-knob'), gameScreen = $('screen-game');
+  const bombBtn = $('bomb-btn'), BOMB_PAD = 30;
   const JOY_R = 60, JOY_DEAD = 14;
   let joyId = null, joyX = 0, joyY = 0;
   function joyMove(t) {
@@ -459,8 +460,12 @@
   }
   gameScreen.addEventListener('touchstart', e => {
     if (!game || e.target.closest('button')) return;
+    const r = bombBtn.getBoundingClientRect();
+    const bx = r.left + r.width / 2, by = r.top + r.height / 2;
     for (const t of e.changedTouches) {
-      if (joyId === null && t.clientX < innerWidth / 2) {
+      // A touch close to the bomb button counts as pressing it; anywhere else starts the stick.
+      if (Math.hypot(t.clientX - bx, t.clientY - by) < r.width / 2 + BOMB_PAD) { dropBomb(); continue; }
+      if (joyId === null) {
         joyId = t.identifier; joyX = t.clientX; joyY = t.clientY;
         joy.style.left = joyX + 'px'; joy.style.top = joyY + 'px';
         joyMove(t);
@@ -477,13 +482,13 @@
       for (const t of e.changedTouches) if (t.identifier === joyId) joyEnd();
     });
   }
-  $('bomb-btn').addEventListener('touchstart', e => {
-    e.preventDefault();
+  function dropBomb() {
     if (game && canAct()) {
       const me = game.players.get(myId);
       socket.emit('bomb', { x: me.x, y: me.y });
     }
-  }, { passive: false });
+  }
+  bombBtn.addEventListener('touchstart', e => { e.preventDefault(); dropBomb(); }, { passive: false });
 
   function canAct() {
     const me = game && game.players.get(myId);
