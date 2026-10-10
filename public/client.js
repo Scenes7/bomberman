@@ -436,6 +436,53 @@
   });
   addEventListener('blur', () => { keys.length = 0; });
 
+  // ---------- touch ----------
+  // Left half: a floating stick that spawns under the finger and stays anchored there
+  // until it lifts. Movement is 4-way, so the dominant axis picks the direction.
+  const joy = $('joy'), knob = $('joy-knob'), gameScreen = $('screen-game');
+  const JOY_R = 60, JOY_DEAD = 14;
+  let joyId = null, joyX = 0, joyY = 0;
+  function joyMove(t) {
+    let dx = t.clientX - joyX, dy = t.clientY - joyY;
+    const len = Math.hypot(dx, dy);
+    if (len > JOY_R) { dx *= JOY_R / len; dy *= JOY_R / len; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    keys.length = 0;
+    if (len > JOY_DEAD) {
+      keys.push(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'd' : 'a') : (dy > 0 ? 's' : 'w'));
+    }
+  }
+  function joyEnd() {
+    joyId = null; joy.hidden = true; keys.length = 0;
+  }
+  gameScreen.addEventListener('touchstart', e => {
+    if (!game || e.target.closest('button')) return;
+    for (const t of e.changedTouches) {
+      if (joyId === null && t.clientX < innerWidth / 2) {
+        joyId = t.identifier; joyX = t.clientX; joyY = t.clientY;
+        joy.style.left = joyX + 'px'; joy.style.top = joyY + 'px'; joy.hidden = false;
+        joyMove(t);
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  gameScreen.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) if (t.identifier === joyId) joyMove(t);
+    e.preventDefault();
+  }, { passive: false });
+  for (const ev of ['touchend', 'touchcancel']) {
+    gameScreen.addEventListener(ev, e => {
+      for (const t of e.changedTouches) if (t.identifier === joyId) joyEnd();
+    });
+  }
+  $('bomb-btn').addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (game && canAct()) {
+      const me = game.players.get(myId);
+      socket.emit('bomb', { x: me.x, y: me.y });
+    }
+  }, { passive: false });
+
   function canAct() {
     const me = game && game.players.get(myId);
     return me && me.alive && !game.over && performance.now() >= game.startAt;
