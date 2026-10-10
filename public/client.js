@@ -453,14 +453,16 @@
     }
   }
   function joyEnd() {
-    joyId = null; joy.hidden = true; keys.length = 0;
+    joyId = null; keys.length = 0;
+    joy.style.left = joy.style.top = '';      // back to the resting spot
+    knob.style.transform = '';
   }
   gameScreen.addEventListener('touchstart', e => {
     if (!game || e.target.closest('button')) return;
     for (const t of e.changedTouches) {
       if (joyId === null && t.clientX < innerWidth / 2) {
         joyId = t.identifier; joyX = t.clientX; joyY = t.clientY;
-        joy.style.left = joyX + 'px'; joy.style.top = joyY + 'px'; joy.hidden = false;
+        joy.style.left = joyX + 'px'; joy.style.top = joyY + 'px';
         joyMove(t);
       }
     }

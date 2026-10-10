@@ -260,13 +260,13 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 #joy, #bomb-btn { display: none; }
 @media (pointer: coarse) {
   #screen-game { touch-action: none; user-select: none; -webkit-user-select: none; }
-  #screen-game.active ~ #bomb-btn, #screen-game.active #bomb-btn { display: block; }
+  #screen-game.active #bomb-btn, #screen-game.active #joy { display: block; }
   #joy {
     position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px;
+    left: 80px; top: calc(100% - 80px);   /* resting spot, bottom left */
     border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.45);
-    background: rgba(255, 255, 255, 0.12); pointer-events: none; z-index: 20;
+    background: rgba(255, 255, 255, 0.12); opacity: 0.5; pointer-events: none; z-index: 20;
   }
-  #joy[hidden] { display: none; }
   #joy-knob {
     position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
     border-radius: 50%; background: rgba(255, 255, 255, 0.7);
