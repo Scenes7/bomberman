@@ -230,10 +230,12 @@
       hudSig: '',
       passable: new Set(),   // bombs I'm standing on and may walk off of
       startAt: performance.now() + data.countdown,
+      collapse: Shared.collapsePlan(data.config, n, data.collapseSide),
       lastSent: 0,
       sentX: null, sentY: null,
       over: false,
     };
+    game.collapseT0 = game.startAt + data.config.COLLAPSE_DELAY - data.config.COLLAPSE_WARNING;
     keys.length = 0;
     $('eliminated').hidden = true;
     Render.setup(canvas, n);
@@ -253,6 +255,7 @@
       const p = game.players.get(sp.id);
       if (!p) continue;
       p.alive = sp.alive;
+      p.fallStart = sp.fallAge == null ? null : now - sp.fallAge;
       // Stats change when a powerup is picked up; my own speed feeds prediction below.
       p.maxBombs = sp.maxBombs; p.blastRange = sp.blastRange; p.speed = sp.speed; p.levels = sp.levels;
       if (sp.id !== myId) { p.x = sp.x; p.y = sp.y; }
@@ -492,7 +495,7 @@
 
   function canAct() {
     const me = game && game.players.get(myId);
-    return me && me.alive && !game.over && performance.now() >= game.startAt;
+    return me && me.alive && me.fallStart == null && !game.over && performance.now() >= game.startAt;
   }
 
   // ---------- loop ----------

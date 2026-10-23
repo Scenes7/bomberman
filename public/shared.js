@@ -19,6 +19,13 @@
     SOFT_BLOCK_CHANCE: 0.55, // chance a tile starts as a breakable block
     HARD_WALL_CHANCE: 0.12,  // chance a tile starts as an unbreakable wall
     PLAYER_SIZE: 0.7,        // hitbox width as a fraction of a tile
+    // Arena collapse: from the outside in, as a spiral, one line of tiles at a time.
+    COLLAPSE_DELAY: 120000,   // ms after GO until the first line starts to go
+    COLLAPSE_WARNING: 5000,   // ms a line is shadowed before it starts to go
+    COLLAPSE_INTERVAL: 5000,  // ms between one line starting and the next
+    COLLAPSE_ROW_TIME: 3000,  // ms a line takes to start greying along its length
+    COLLAPSE_TILE_TIME: 1000, // ms one tile takes to go from grey to black (gone)
+    FALL_TIME: 2000,          // ms a player takes to shrink away once their tile is gone
   };
   // Seats are a per-mode rule, so the cap lives on the mode, not here.
 
@@ -255,7 +262,35 @@
     if (shift !== 0 && tryPos(p[main], p[cross] + shift)) p[cross] += shift;
   }
 
-  return { CONFIG, TILE, POWERUP, POWERUP_TYPES, baseStats, applyPowerup,
+  // The order the arena collapses in. Lines peel off the outside clockwise, starting
+  // from `side` (0 top, 1 right, 2 bottom, 3 left), then spiral inward. Times are ms
+  // from the first line's warning. Server and client build it from the same inputs,
+  // so only `side` has to be sent.
+  function collapsePlan(cfg, n, side) {
+    const order = [0, 1, 2, 3].map(k => (side + k) % 4);
+    let x0 = 0, x1 = n - 1, y0 = 0, y1 = n - 1;
+    const lines = [], byTile = new Map();
+    while (x0 <= x1 && y0 <= y1) {
+      for (const s of order) {
+        if (x0 > x1 || y0 > y1) break;
+        const tiles = [];
+        if (s === 0) { for (let x = x0; x <= x1; x++) tiles.push(y0 * n + x); y0++; }
+        else if (s === 1) { for (let y = y0; y <= y1; y++) tiles.push(y * n + x1); x1--; }
+        else if (s === 2) { for (let x = x1; x >= x0; x--) tiles.push(y1 * n + x); y1--; }
+        else { for (let y = y1; y >= y0; y--) tiles.push(y * n + x0); x0++; }
+        const warnAt = lines.length * cfg.COLLAPSE_INTERVAL;
+        const dropAt = warnAt + cfg.COLLAPSE_WARNING;
+        tiles.forEach((i, j) => {
+          const greyAt = dropAt + cfg.COLLAPSE_ROW_TIME * j / tiles.length;
+          byTile.set(i, { warnAt, greyAt, blackAt: greyAt + cfg.COLLAPSE_TILE_TIME });
+        });
+        lines.push(tiles);
+      }
+    }
+    return { lines, byTile };
+  }
+
+  return { CONFIG, TILE, collapsePlan, POWERUP, POWERUP_TYPES, baseStats, applyPowerup,
            TEAM, TEAMS, normalizeTeam, PALETTES, appearanceFor,
            MODE, MODES, modeById, factionOf, statsKeyFor, startBlocker, spreadAcross,
            isSolid, overlappedTiles, collides, stepPlayer };

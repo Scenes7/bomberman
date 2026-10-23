@@ -1,7 +1,7 @@
 const {
   CONFIG, TILE, POWERUP_TYPES, baseStats, applyPowerup, collides,
   TEAMS, normalizeTeam, appearanceFor, MODE, MODES, modeById,
-  factionOf, statsKeyFor, startBlocker,
+  factionOf, statsKeyFor, startBlocker, collapsePlan,
 } = require('../public/shared.js');
 
 const TICK_MS = 1000 / 30;
@@ -177,11 +177,20 @@ class Room {
       startAt: Date.now() + cfg.COUNTDOWN,
       over: false,
     };
+    const side = Math.floor(Math.random() * 4);
+    this.match.collapse = {
+      side,
+      plan: collapsePlan(cfg, n, side),
+      // Time zero of the plan is the first line's warning, which leads its drop.
+      t0: this.match.startAt + cfg.COLLAPSE_DELAY - cfg.COLLAPSE_WARNING,
+      gone: new Set(),
+    };
 
     this.io.to(this.code).emit('start', {
       config: cfg,
       countdown: cfg.COUNTDOWN,
       mode: mode.id,
+      collapseSide: side,
       teams: mode.teams,
       grid: this.match.grid.join(''),
       players: [...players.values()].map(publicPlayer),
@@ -194,7 +203,7 @@ class Room {
     const m = this.match;
     if (!m || m.over || Date.now() < m.startAt) return;
     const p = m.players.get(id);
-    if (!p || !p.alive || !pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+    if (!p || !p.alive || p.fallStart != null || !pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
 
     // Light sanity check: reject teleports and walking into walls/blocks.
     const now = Date.now();
@@ -215,7 +224,7 @@ class Room {
     const m = this.match;
     if (!m || m.over || Date.now() < m.startAt) return;
     const p = m.players.get(id);
-    if (!p || !p.alive || p.activeBombs >= p.stats.maxBombs) return;
+    if (!p || !p.alive || p.fallStart != null || p.activeBombs >= p.stats.maxBombs) return;
     const tx = Math.floor(p.x), ty = Math.floor(p.y);
     const i = ty * m.n + tx;
     if (m.bombs.has(i)) return;
@@ -245,6 +254,8 @@ class Room {
       if (p.alive && burning.has(Math.floor(p.y) * m.n + Math.floor(p.x))) p.alive = false;
     }
 
+    this.collapse(m, now);
+
     // Powerups sit in their own map, so blasts never touch them -- only walking
     // over one picks it up, and only the living can do that.
     for (const p of m.players.values()) {
@@ -271,6 +282,34 @@ class Room {
     this.io.to(this.code).emit('state', state);
 
     this.checkGameOver();
+  }
+
+  // Tiles that have gone black are gone for good: whatever stood on them goes too, and
+  // a player whose tile is gone starts to fall. Once falling there is no way back.
+  collapse(m, now) {
+    const c = m.collapse;
+    if (now >= c.t0) {
+      for (const [i, s] of c.plan.byTile) {
+        if (c.gone.has(i) || now < c.t0 + s.blackAt) continue;
+        c.gone.add(i);
+        if (m.grid[i] !== TILE.EMPTY) { m.grid[i] = TILE.EMPTY; m.gridDirty = true; }
+        const b = m.bombs.get(i);
+        if (b) {
+          m.bombs.delete(i);
+          const owner = m.players.get(b.owner);
+          if (owner) owner.activeBombs--;
+        }
+        if (m.powerups.delete(i)) m.powerupsDirty = true;
+      }
+    }
+    for (const p of m.players.values()) {
+      if (!p.alive) continue;
+      if (p.fallStart == null) {
+        if (c.gone.has(Math.floor(p.y) * m.n + Math.floor(p.x))) p.fallStart = now;
+      } else if (now - p.fallStart >= m.cfg.FALL_TIME) {
+        p.alive = false;
+      }
+    }
   }
 
   explode(index, bomb, now) {
@@ -337,6 +376,7 @@ function publicPlayer(p) {
   return {
     id: p.id, name: p.name, team: p.team, appearance: p.appearance,
     x: p.x, y: p.y, alive: p.alive,
+    fallAge: p.fallStart == null ? null : Date.now() - p.fallStart,
     maxBombs: p.stats.maxBombs, blastRange: p.stats.blastRange,
     speed: p.stats.speed, levels: p.stats.levels,
   };

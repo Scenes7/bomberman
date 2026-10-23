@@ -105,9 +105,16 @@ const Render = (() => {
     ctx.fillStyle = '#fff7cf'; ctx.fillRect(px + 11, py + 11, T - 22, T - 22);
   }
 
-  function player(ctx, p, isMe, teamed) {
+  // fall: 0 standing .. 1 gone. A falling player shrinks towards their own centre.
+  function player(ctx, p, isMe, teamed, fall) {
     const cx = (p.x + 1) * T, cy = (p.y + 1) * T;
-    ctx.globalAlpha = p.alive ? 1 : 0.3;
+    ctx.save();
+    if (fall > 0) {
+      ctx.translate(cx, cy);
+      ctx.scale(1 - fall, 1 - fall);
+      ctx.translate(-cx, -cy);
+    }
+    ctx.globalAlpha = p.alive || fall > 0 ? 1 : 0.3;
     // Team ring: the avatar's own shade already comes from the team palette, but with
     // eight shades per side a ring in the canonical colour keeps sides readable.
     const ring = teamed && p.team && PALETTES[p.team] ? PALETTES[p.team][0] : null;
@@ -139,8 +146,32 @@ const Render = (() => {
     ctx.fillText(p.name, cx + 1, cy - T * 0.55 + 1);
     ctx.fillStyle = isMe ? '#f5b301' : '#fff';
     ctx.fillText(p.name, cx, cy - T * 0.55);
-    ctx.globalAlpha = 1;
+    ctx.restore();
   }
+
+  // The collapsing arena: shadowed as a warning, then grey (still walkable), then
+  // black. Drawn over whatever the tile held.
+  function collapsing(ctx, px, py, s, t, cfg, now) {
+    if (t >= s.blackAt) { ctx.fillStyle = '#000'; ctx.fillRect(px, py, T, T); return; }
+    if (t >= s.greyAt) {
+      const k = (t - s.greyAt) / cfg.COLLAPSE_TILE_TIME;
+      ctx.fillStyle = '#8c8c8c';
+      ctx.globalAlpha = Math.min(1, k * 2);
+      ctx.fillRect(px, py, T, T);
+      ctx.fillStyle = '#000';
+      ctx.globalAlpha = Math.max(0, k * 2 - 1);
+      ctx.fillRect(px, py, T, T);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    if (t >= s.warnAt) {
+      ctx.fillStyle = `rgba(0,0,0,${0.3 + 0.12 * Math.sin(now / 140)})`;
+      ctx.fillRect(px, py, T, T);
+    }
+  }
+
+  const fallOf = (p, g, now) =>
+    p.fallStart == null ? 0 : Math.min(1, Math.max(0, (now - p.fallStart) / g.cfg.FALL_TIME));
 
   function draw(ctx, g, myId, now) {
     const n = g.n;
@@ -152,6 +183,8 @@ const Render = (() => {
         if (t === TILE.HARD) hardWall(ctx, px, py);
         else if (t === TILE.SOFT) softBlock(ctx, px, py);
         else floor(ctx, px, py, (x + y) % 2 === 0);
+        const s = g.collapse && g.collapse.byTile.get(y * n + x);
+        if (s) collapsing(ctx, px, py, s, now - g.collapseT0, g.cfg, now);
       }
     }
     for (const pu of g.powerups) powerup(ctx, pu, now);
@@ -160,10 +193,14 @@ const Render = (() => {
     const teamed = !!g.teams;
     for (const p of g.players.values()) {
       if (p.id === myId) continue;
-      player(ctx, { ...p, x: p.rx, y: p.ry }, false, teamed);
+      const fall = fallOf(p, g, now);
+      if (fall < 1) player(ctx, { ...p, x: p.rx, y: p.ry }, false, teamed, fall);
     }
     const me = g.players.get(myId);
-    if (me) player(ctx, me, true, teamed);
+    if (me) {
+      const fall = fallOf(me, g, now);
+      if (fall < 1) player(ctx, me, true, teamed, fall);
+    }
   }
 
   return { setup, draw };
