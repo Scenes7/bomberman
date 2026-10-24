@@ -230,16 +230,17 @@
       hudSig: '',
       passable: new Set(),   // bombs I'm standing on and may walk off of
       startAt: performance.now() + data.countdown,
-      collapse: Shared.collapsePlan(data.config, n, data.collapseSide),
+      collapse: data.collapseSide == null ? null : Shared.collapsePlan(data.config, n, data.collapseSide),
       lastSent: 0,
       sentX: null, sentY: null,
       over: false,
     };
-    game.collapseT0 = game.startAt + data.config.COLLAPSE_DELAY - data.config.COLLAPSE_WARNING;
+    if (game.collapse) game.collapseT0 = game.startAt + data.config.COLLAPSE_DELAY - data.config.COLLAPSE_WARNING;
     keys.length = 0;
     $('eliminated').hidden = true;
     Render.setup(canvas, n);
     renderHud();
+    suddenEl.hidden = true;
     show('game');
     showCountdown();
   });
@@ -506,8 +507,28 @@
     if (game) {
       update(dt, now);
       Render.draw(ctx, game, myId, now);
+      renderSudden(now);
     }
     requestAnimationFrame(frame);
+  }
+
+  // Sudden-death clock on the left: counts down to the first tile dropping. Only shown
+  // when the server sent a collapse plan (an older backend has no sudden death).
+  const suddenEl = $('sudden');
+  function renderSudden(now) {
+    if (!game.collapse || game.collapse.lines.length === 0) { suddenEl.hidden = true; return; }
+    const c = game.cfg;
+    const left = game.collapseT0 + c.COLLAPSE_WARNING - now;
+    let html;
+    if (now < game.startAt) { suddenEl.hidden = true; return; }
+    if (left > 0) {
+      const s = Math.ceil(left / 1000);
+      html = `<span>SUDDEN DEATH</span><b class="${left <= c.COLLAPSE_WARNING ? 'warn' : ''}">${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</b>`;
+    } else {
+      html = '<b class="warn">SUDDEN DEATH!</b>';
+    }
+    if (suddenEl.dataset.html !== html) { suddenEl.innerHTML = html; suddenEl.dataset.html = html; }
+    suddenEl.hidden = false;
   }
 
   function update(dt, now) {
