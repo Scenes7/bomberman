@@ -305,7 +305,6 @@ button.primary { background: var(--accent); color: #1a1a1a; }
   #topbar { display: flex; flex-direction: column; gap: 8px; width: auto; }
   .hud-side { flex-direction: column; justify-content: center !important; }
   #sudden { order: -1; flex-direction: row; gap: 10px; padding: 6px 12px; min-width: 0; align-self: center; }
-  #sudden[hidden] { display: none; }
   #sudden span { font-size: 8px; }
   #sudden b { font-size: 14px; }
   #canvas { width: min(92vw, calc(100vh - 300px)); }

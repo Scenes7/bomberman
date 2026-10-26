@@ -240,7 +240,6 @@
     $('eliminated').hidden = true;
     Render.setup(canvas, n);
     renderHud();
-    suddenEl.hidden = true;
     show('game');
     showCountdown();
   });
@@ -516,20 +515,18 @@
   // Sudden-death clock on the left: counts down to the first tile dropping. Only shown
   // when the server sent a collapse plan (an older backend has no sudden death).
   const suddenEl = $('sudden');
+  const clock = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   function renderSudden(now) {
     if (!game.collapse || game.collapse.lines.length === 0) { suddenEl.hidden = true; return; }
     const c = game.cfg;
     const left = game.collapseT0 + c.COLLAPSE_WARNING - now;
-    let html;
-    if (now < game.startAt) { suddenEl.hidden = true; return; }
-    if (left > 0) {
-      const s = Math.ceil(left / 1000);
-      html = `<span>SUDDEN DEATH</span><b class="${left <= c.COLLAPSE_WARNING ? 'warn' : ''}">${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</b>`;
-    } else {
-      html = '<b class="warn">SUDDEN DEATH!</b>';
-    }
+    // Always the same two-part shape, so the clock never changes the bar's height.
+    const html = left > 0
+      ? `<span>SUDDEN DEATH</span><b class="${left <= c.COLLAPSE_WARNING ? 'warn' : ''}">${clock(Math.ceil(left / 1000))}</b>`
+      : '<span>SUDDEN DEATH</span><b class="warn">NOW!</b>';
     if (suddenEl.dataset.html !== html) { suddenEl.innerHTML = html; suddenEl.dataset.html = html; }
-    suddenEl.hidden = false;
+    // Before GO it holds its place invisibly, so nothing shifts when it appears.
+    suddenEl.hidden = now < game.startAt;
   }
 
   function update(dt, now) {
