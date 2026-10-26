@@ -334,16 +334,17 @@
   }
 
   function renderHud() {
-    const hud = $('hud');
-    hud.innerHTML = '';
+    const left = $('hud-left'), right = $('hud-right');
+    left.innerHTML = right.innerHTML = '';
     // One block per side. In a team mode the tiers are shared, so the chips belong to
     // the team and are shown once rather than repeated under every member.
     const groups = game.teams
       ? game.teams.map(t => ({ label: t, players: [...game.players.values()].filter(p => p.team === t) }))
       : [...game.players.values()].map(p => ({ label: null, players: [p] }));
 
-    for (const g of groups) {
-      if (!g.players.length) continue;
+    const shown = groups.filter(g => g.players.length);
+    const half = Math.ceil(shown.length / 2);
+    shown.forEach((g, gi) => {
       const el = document.createElement('div');
       el.className = 'hud-group' + (g.players.some(p => p.alive) ? '' : ' out');
       if (g.label) {
@@ -362,8 +363,8 @@
         el.appendChild(who);
       }
       el.appendChild(statChips(g.players[0]));
-      hud.appendChild(el);
-    }
+      (gi < half ? left : right).appendChild(el);
+    });
   }
 
   function overlay(html) {

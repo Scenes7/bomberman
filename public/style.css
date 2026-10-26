@@ -142,15 +142,23 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 /* Game */
 #screen-game { gap: 10px; }
 
-#hud {
+#topbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  width: min(96vw, 1100px);
+}
+.hud-side {
   display: flex;
   flex-wrap: wrap;            /* stat chips make this row long on a phone */
   justify-content: center;
   gap: 10px 24px;
   font-family: var(--pixel);
   font-size: 11px;
-  max-width: 92vw;
 }
+#hud-left { justify-content: flex-end; }
+#hud-right { justify-content: flex-start; }
 .hud-group {
   display: flex;
   flex-wrap: wrap;
@@ -196,7 +204,7 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 
 #canvas {
   display: block;
-  width: min(92vw, calc(100vh - 80px));
+  width: min(92vw, calc(100vh - 120px));
   height: auto;
   aspect-ratio: 1;
   border-radius: 6px;
@@ -279,14 +287,26 @@ button.primary { background: var(--accent); color: #1a1a1a; }
   #bomb-btn:active { transform: scale(0.94); }
 }
 
-/* sudden-death clock, left edge of the screen */
+/* sudden-death clock, centre of the top bar */
 #sudden {
-  position: fixed; left: 12px; top: 50%; transform: translateY(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 10px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.55);
-  font-family: var(--pixel); color: #fff; text-align: center; z-index: 10; pointer-events: none;
+  padding: 8px 18px; border-radius: 8px; background: #1e2128; min-width: 120px;
+  font-family: var(--pixel); color: #fff; text-align: center;
 }
-#sudden[hidden] { display: none; }
+#sudden[hidden] { display: flex; visibility: hidden; }   /* keep the middle column */
 #sudden span { font-size: 9px; color: #bbb; }
 #sudden b { font-size: 18px; font-weight: normal; }
 #sudden b.warn { color: var(--danger); }
+
+/* Phones: stack everything from the top (clock, then HUD, then board) so the board sits
+   high and the thumb controls at the bottom have the room to themselves. */
+@media (pointer: coarse) {
+  #screen-game { justify-content: flex-start; padding-top: 10px; gap: 8px; }
+  #topbar { display: flex; flex-direction: column; gap: 8px; width: auto; }
+  .hud-side { flex-direction: column; justify-content: center !important; }
+  #sudden { order: -1; flex-direction: row; gap: 10px; padding: 6px 12px; min-width: 0; align-self: center; }
+  #sudden[hidden] { display: none; }
+  #sudden span { font-size: 8px; }
+  #sudden b { font-size: 14px; }
+  #canvas { width: min(92vw, calc(100vh - 300px)); }
+}

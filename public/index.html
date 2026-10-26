@@ -66,8 +66,12 @@
 
   <!-- Game -->
   <section id="screen-game" class="screen">
-    <div id="hud"></div>
-    <div id="sudden" hidden></div>
+    <!-- Top bar: one side's HUD on the left, the sudden-death clock in the middle, the other side on the right. -->
+    <div id="topbar">
+      <div id="hud-left" class="hud-side"></div>
+      <div id="sudden" hidden></div>
+      <div id="hud-right" class="hud-side"></div>
+    </div>
     <div class="stage">
       <canvas id="canvas"></canvas>
       <!-- Small, non-blocking: a knocked-out player keeps watching their team play. -->
