@@ -1,13 +1,14 @@
 # Bomberman
 
 Online Bomberman, free-for-all or Red vs Blue. Static frontend (HTML / vanilla JS / CSS) in `public/`,
-Node + socket.io server in `server/`, packaged with Docker for AWS Lightsail.
+authoritative game server in `server/game.js`, hosted on Cloudflare Workers + Durable Objects
+(free plan) by `worker/index.js`.
 
 ## Run locally
 
 ```
 npm install
-npm start          # http://localhost:3000
+npm run dev        # http://localhost:8787 (wrangler dev, with a local Durable Object)
 ```
 
 Create a lobby, copy the link, and open it in other browser windows (or send it to friends).
@@ -28,7 +29,7 @@ lobby back to free-for-all while more than four people are in it.
 All gameplay numbers are in `CONFIG` at the top of `public/shared.js`:
 `PLAYER_SPEED`, `FUSE_TIME`, `MAX_BOMBS`, `BLAST_RANGE`, `GRID_SIZE`, `COUNTDOWN`,
 map density, etc. The server sends its values to clients when a match starts,
-so just edit and restart the server.
+so just edit and redeploy.
 
 Powerups are tuned there too: `POWERUP_DROP_CHANCE` (odds a destroyed block leaves
 one), `MAX_POWERUP_LEVEL` (how many times each stat can be raised) and `SPEED_STEP`.
@@ -56,31 +57,36 @@ Player looks come from `appearanceFor(mode, team, seat)`, which returns an objec
 than a bare colour -- avatar options (hats, faces, trails) can be added to it without
 touching the renderer's call sites.
 
+## Architecture
+
+- **Static files** -- `public/` is served by Workers Static Assets. Asset requests never run
+  the Worker, so they're free and unmetered.
+- **`/ws`** -- the Worker routes each WebSocket to a Durable Object named by the 5-character
+  lobby code (`/ws?create=1` picks a fresh code). One object per lobby owns its sockets and
+  runs `Room` from `server/game.js` at 30 ticks/s while a match is on.
+- **Wire format** -- JSON `{ t, d, n? }` frames. `public/net.js` is a tiny socket.io-style
+  wrapper (`on` / `emit` with an ack callback), so `client.js` and `game.js` kept their
+  event names: `createLobby`, `joinLobby`, `setMode`, `setTeam`, `startGame`, `move`, `bomb`
+  up; `lobby`, `start`, `state`, `correction`, `gameOver` down.
+- **Hibernation** -- lobbies use the WebSocket Hibernation API. Between matches an idle lobby
+  is evicted from memory and rebuilt from per-socket attachments plus one storage key, and
+  the client's 30 s `ping` is answered by an auto-response without waking it, so idle lobbies
+  cost nothing. Redeploying the Worker drops every open socket (players see DISCONNECTED).
+
+Free-plan budget: incoming WebSocket messages bill at 20:1 against the 100,000 requests/day
+Durable Object allowance. Clients send at most 20 moves/s, so that's roughly 7 hours of
+4-player play per day.
+
 ## Deployment
 
-- **Frontend** ~ GitHub Pages via `.github/workflows/pages.yml` (Settings → Pages → Source:
-  *GitHub Actions*). Runs on every push to `main` that touches `public/`, or manually from the
-  Actions tab. `public/config.js` points the Pages site at the backend below. Live at
-  <http://bomberman.dreamteamhub.ca/> ~ a custom domain CNAME'd to `scenes7.github.io`.
-- **Backend** ~ Lightsail instance `bomberman` (us-east-1, static IP `34.198.211.103`), served at
-  `https://34-198-211-103.sslip.io`. It runs `deploy/docker-compose.yml`: the game server plus
-  Caddy, which gets the HTTPS certificate automatically. `deploy/.env` on the server sets
-  `DOMAIN` and `CORS_ORIGINS`. That file is not in the repo, so a redeploy from a fresh clone
-  must recreate it:
-
-  ```
-  DOMAIN=34-198-211-103.sslip.io
-  CORS_ORIGINS=https://scenes7.github.io,https://bomberman.dreamteamhub.ca,http://bomberman.dreamteamhub.ca
-  ```
-
-  Every origin the frontend is served from must be listed in `CORS_ORIGINS`, or the browser
-  blocks the socket.io connection and "Create lobby" silently does nothing.
-
-To redeploy the backend, copy the repo to `~/bomberman` on the instance and run:
+Live at <https://bomberman.dreamteamhub.ca/> -- a Worker custom domain on the Cloudflare zone
+`dreamteamhub.ca`; Cloudflare manages the DNS record and certificate. Also reachable at
+`bomberman.<account>.workers.dev`.
 
 ```
-sudo docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+npx wrangler login     # once per machine
+npm run deploy         # wrangler deploy: uploads public/ and the Worker together
 ```
 
-If the backend moves, update the URL in `public/config.js` and `CORS_ORIGINS` in `deploy/.env`.
-If the frontend moves to a new domain, add that domain to `CORS_ORIGINS` and restart the backend.
+Frontend and backend ship together in one deploy, so `public/shared.js` can no longer drift
+between them. Live logs: `npx wrangler tail`.

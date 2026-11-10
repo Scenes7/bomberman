@@ -1,6 +1,6 @@
 (() => {
   const { stepPlayer, overlappedTiles, POWERUP, MODE, MODES } = Shared;
-  const socket = io(window.SERVER_URL || undefined);
+  const socket = Net.connect();
   const $ = id => document.getElementById(id);
 
   let myId = null;

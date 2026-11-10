@@ -2,3 +2,7 @@ node_modules/
 *accessKeys*.csv
 *.pem
 .env
+
+# Local deploy runbook (not shared)
+DEPLOY.md
+.wrangler/

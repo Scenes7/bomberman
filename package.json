@@ -2,16 +2,15 @@
   "name": "bomberman",
   "version": "1.0.0",
   "private": true,
-  "description": "Online Bomberman for 2-4 players (socket.io)",
-  "main": "server/index.js",
+  "description": "Online Bomberman for 2-8 players (Cloudflare Workers + Durable Objects)",
   "scripts": {
-    "start": "node server/index.js"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   },
-  "dependencies": {
-    "express": "^4.19.2",
-    "socket.io": "^4.7.5"
+  "devDependencies": {
+    "wrangler": "^4.86.0"
   }
 }
