@@ -25,6 +25,7 @@
     COLLAPSE_INTERVAL: 5000,  // ms between one line starting and the next
     COLLAPSE_ROW_TIME: 3000,  // ms a line takes to start greying along its length
     COLLAPSE_TILE_TIME: 1000, // ms one tile takes to go from grey to black (gone)
+    RECONNECT_GRACE: 90000,   // ms a dropped player's spot is held mid-match before they are out
     FALL_TIME: 2000,          // ms a player takes to shrink away once their tile is gone
   };
   // Seats are a per-mode rule, so the cap lives on the mode, not here.

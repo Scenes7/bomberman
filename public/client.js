@@ -43,10 +43,24 @@
   }
   (nameInput.value ? $(invited ? 'join' : 'create') : nameInput).focus();
 
+
   function playerName() {
     const name = nameInput.value.trim() || 'Guest';
     try { localStorage.setItem('bomberman-name', name); } catch {}
     return name;
+  }
+
+  // The key to my seat in a running match, kept per lobby so that coming back to the
+  // same lobby link after a dropped connection puts me back where I was.
+  const SESSION_KEY = 'bomberman-session';
+  function saveSession(code, token) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ code, token })); } catch {}
+  }
+  function loadSession() {
+    try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch { return null; }
+  }
+  function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
   }
 
   function entered(res) {
@@ -59,6 +73,8 @@
     }
     myId = res.id;
     history.replaceState(null, '', `?lobby=${res.code}`);
+    if (res.token) saveSession(res.code, res.token);
+    if (res.rejoined) return;      // the match view arrives next
     show('lobby');
     // The lobby broadcast can arrive before this ack, in which case it was painted
     // without knowing which player is us. Repaint now that we do.
@@ -96,6 +112,16 @@
   };
   $('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('join').click(); });
   nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') $(invited ? 'join' : 'create').click(); });
+
+  // Back at a lobby link I was playing in: try to take my seat again. If there is no
+  // match to rejoin (it ended, or the seat timed out) say nothing and show the normal page.
+  const saved = inviteCode && loadSession();
+  if (saved && saved.code === inviteCode && saved.token) {
+    socket.emit('joinLobby', { code: inviteCode, name: playerName(), token: saved.token, rejoin: true }, res => {
+      if (res.ok) entered(res);
+      else clearSession();
+    });
+  }
 
   // ---------- lobby ----------
   socket.on('lobby', data => { lobby = data; paintLobby(data); });
@@ -222,7 +248,10 @@
       teams: data.teams || null,
       n,
       grid: [...data.grid].map(Number),
-      players: new Map(data.players.map(p => [p.id, { ...p, rx: p.x, ry: p.y }])),
+      players: new Map(data.players.map(p => [p.id, {
+        ...p, rx: p.x, ry: p.y,
+        fallStart: p.fallAge == null ? null : performance.now() - p.fallAge,
+      }])),
       bombs: [],
       bombTiles: new Set(),
       flames: [],
@@ -241,7 +270,8 @@
     Render.setup(canvas, n);
     renderHud();
     show('game');
-    showCountdown();
+    if (data.countdown > 0) showCountdown();
+    else overlay(null);            // rejoining a match already under way
   });
 
   socket.on('state', s => {
@@ -299,6 +329,7 @@
   }
 
   socket.on('gameOver', ({ winnerId, winnerName, winnerTeam }) => {
+    clearSession();
     if (!game) return;
     game.over = true;
     $('eliminated').hidden = true;

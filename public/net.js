@@ -76,7 +76,8 @@
             if (ack) ack({ ok: false, error: 'Lobby not found.' });
             return;
           }
-          open(t === 'createLobby' ? 'create=1' : `code=${code}`);
+          const token = d && d.token && /^[0-9a-f-]{36}$/.test(d.token) ? d.token : '';
+          open(t === 'createLobby' ? 'create=1' : `code=${code}${token ? `&token=${token}` : ''}`);
           pending = ack;
         }
         send(t, d, ack);

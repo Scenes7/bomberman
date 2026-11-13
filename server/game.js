@@ -91,8 +91,10 @@ class Room {
     return TEAMS.reduce((best, t) => (counts.get(t) < counts.get(best) ? t : best), TEAMS[0]);
   }
 
-  addPlayer(id, name) {
-    this.players.set(id, { id, name, team: this.smallestTeam() });
+  // `token` is the player's private key to their seat: it is never broadcast, and
+  // presenting it is the only way back into a match after a dropped connection.
+  addPlayer(id, name, token) {
+    this.players.set(id, { id, name, team: this.smallestTeam(), token });
     if (!this.hostId) this.hostId = id;
     this.broadcastLobby();
   }
@@ -121,7 +123,15 @@ class Room {
     return startBlocker(this.mode, this.roster());
   }
 
-  removePlayer(id) {
+  removePlayer(id, force = false) {
+    // Mid-match a dropped connection holds the seat instead of ending the player's
+    // match: they stay in play (and vulnerable) so they can rejoin, until the grace
+    // period runs out (see expireDisconnected).
+    const seat = this.match && this.match.players.get(id);
+    if (seat && !force) {
+      seat.disconnectedAt = Date.now();
+      return;
+    }
     this.players.delete(id);
     if (this.hostId === id) this.hostId = this.players.keys().next().value || null;
     if (this.match) {
@@ -157,6 +167,7 @@ class Room {
       seats.set(group, seat + 1);
       players.set(p.id, {
         id: p.id, name: p.name, team,
+        token: p.token,
         appearance: appearanceFor(mode, team, seat),
         x: spawns[i].x + 0.5, y: spawns[i].y + 0.5,
         alive: true, activeBombs: 0, lastMoveAt: 0,
@@ -186,17 +197,53 @@ class Room {
       gone: new Set(),
     };
 
-    this.io.to(this.code).emit('start', {
-      config: cfg,
-      countdown: cfg.COUNTDOWN,
-      mode: mode.id,
-      collapseSide: side,
-      teams: mode.teams,
-      grid: this.match.grid.join(''),
-      players: [...players.values()].map(publicPlayer),
-    });
+    this.io.to(this.code).emit('start', this.startPayload());
     this.broadcastLobby();
     this.timer = setInterval(() => this.tick(), TICK_MS);
+  }
+
+  // Everything a client needs to build the match view, as it stands right now. Sent to
+  // everyone at the start, and to a single player who rejoins partway through (a
+  // negative countdown just means the match has already begun).
+  startPayload() {
+    const m = this.match;
+    return {
+      config: m.cfg,
+      countdown: m.startAt - Date.now(),
+      mode: m.mode.id,
+      collapseSide: m.collapse.side,
+      teams: m.mode.teams,
+      grid: m.grid.join(''),
+      players: [...m.players.values()].map(publicPlayer),
+    };
+  }
+
+  // Take back a seat held for a dropped player. The tick only sends the grid and the
+  // powerups when they change, so flag both to refill the rejoiner's picture.
+  rejoin(id, token) {
+    const m = this.match;
+    const seat = m && !m.over && m.players.get(id);
+    if (!seat || !token || seat.token !== token) return false;
+    delete seat.disconnectedAt;
+    m.gridDirty = true;
+    m.powerupsDirty = true;
+    return true;
+  }
+
+  // The match a token belongs to, if it is still running: the id that token holds.
+  seatFor(token) {
+    const m = this.match;
+    if (!m || m.over || !token) return null;
+    for (const p of m.players.values()) if (p.token === token) return p.id;
+    return null;
+  }
+
+  // Seats held too long are given up. Returns true if that ended the match.
+  expireDisconnected(m, now) {
+    for (const p of [...m.players.values()]) {
+      if (p.disconnectedAt && now - p.disconnectedAt > m.cfg.RECONNECT_GRACE) this.removePlayer(p.id, true);
+    }
+    return m.over;
   }
 
   handleMove(id, pos) {
@@ -237,6 +284,7 @@ class Room {
   tick() {
     const m = this.match;
     const now = Date.now();
+    if (this.expireDisconnected(m, now)) return;
 
     // Tiles still alight from earlier ticks.
     m.flames = m.flames.filter(f => f.until > now);
@@ -361,6 +409,11 @@ class Room {
       survivors: alive.map(p => p.name),
     });
     this.state = 'lobby';
+    // Anyone still disconnected when it ends is gone for good.
+    for (const id of [...this.players.keys()]) {
+      if (m.players.get(id) && m.players.get(id).disconnectedAt) this.players.delete(id);
+    }
+    if (!this.players.has(this.hostId)) this.hostId = this.players.keys().next().value || null;
     this.match = null;
     this.broadcastLobby();
   }

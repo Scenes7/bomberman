@@ -41,6 +41,9 @@ export default {
 
     const target = new URL('https://lobby/ws');
     target.searchParams.set('code', code);
+    // The private key to a seat in a running match, if this is a rejoin.
+    const token = url.searchParams.get('token') || '';
+    if (/^[0-9a-f-]{36}$/.test(token)) target.searchParams.set('token', token);
     const stub = env.LOBBY.get(env.LOBBY.idFromName(code));
     return stub.fetch(new Request(target, request));
   },
@@ -96,7 +99,7 @@ export class Lobby extends DurableObject {
   restore(meta) {
     this.code = meta.code;
     const room = new Room(meta.code, this.io);
-    for (const { a } of this.joinedSockets()) room.players.set(a.id, { id: a.id, name: a.name, team: a.team });
+    for (const { a } of this.joinedSockets()) room.players.set(a.id, { id: a.id, name: a.name, team: a.team, token: a.token });
     if (!room.players.size) return;
     room.hostId = room.players.has(meta.hostId) ? meta.hostId : room.players.keys().next().value;
     if (MODES[meta.mode]) room.mode = MODES[meta.mode];
@@ -124,13 +127,27 @@ export class Lobby extends DurableObject {
   }
 
   async fetch(request) {
-    const code = new URL(request.url).searchParams.get('code');
-    this.code = this.code || code;
+    const params = new URL(request.url).searchParams;
+    this.code = this.code || params.get('code');
     const pair = new WebSocketPair();
-    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+    let id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+
+    // A rejoin presents the token of a seat in the running match, and takes that seat's
+    // id over. Any socket still holding the seat (a half-dead connection) is retired
+    // first, marked as already left so its late close can't drop the seat again.
+    const token = params.get('token');
+    const seat = this.room && this.room.seatFor(token);
+    if (seat) {
+      id = seat;
+      for (const old of this.ctx.getWebSockets(id)) {
+        const oa = old.deserializeAttachment();
+        try { old.serializeAttachment({ ...oa, joined: false, left: true }); } catch {}
+        try { old.close(1000, 'replaced'); } catch {}
+      }
+    }
     // The player id doubles as the socket's tag, so io.to(id) is a direct lookup.
     this.ctx.acceptWebSocket(pair[1], [id]);
-    pair[1].serializeAttachment({ id, joined: false });
+    pair[1].serializeAttachment({ id, joined: false, token: seat ? token : undefined });
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
@@ -162,6 +179,11 @@ export class Lobby extends DurableObject {
       case 'joinLobby':
         if (me) return;
         if (!room) return ack({ ok: false, error: 'Lobby not found.' });
+        if (a.token && room.rejoin(a.id, a.token)) {
+          this.rejoin(ws, a, ack);
+          return;
+        }
+        if (d.rejoin) return ack({ ok: false, error: 'There is no match to rejoin.' });
         if (room.state !== 'lobby') return ack({ ok: false, error: 'That match is already in progress.' });
         if (room.players.size >= room.mode.maxPlayers) return ack({ ok: false, error: 'Lobby is full.' });
         this.join(ws, a, d.name, ack);
@@ -195,8 +217,19 @@ export class Lobby extends DurableObject {
   join(ws, a, name, ack) {
     const clean = cleanName(name);
     ws.serializeAttachment({ ...a, joined: true, name: clean, seq: Date.now() + Math.random() });
-    ack({ ok: true, code: this.code, id: a.id });
-    this.room.addPlayer(a.id, clean);
+    const token = crypto.randomUUID();
+    ws.serializeAttachment({ ...a, joined: true, name: clean, seq: Date.now() + Math.random(), token });
+    ack({ ok: true, code: this.code, id: a.id, token });
+    this.room.addPlayer(a.id, clean, token);
+  }
+
+  // Back into a running match under the old id: the ack comes first so the client knows
+  // who it is, then the match as it stands.
+  rejoin(ws, a, ack) {
+    const name = (this.room.players.get(a.id) || {}).name || 'Guest';
+    ws.serializeAttachment({ ...a, joined: true, name, seq: Date.now() + Math.random() });
+    ack({ ok: true, code: this.code, id: a.id, token: a.token, rejoined: true });
+    this.send(a.id, 'start', this.room.startPayload());
   }
 
   async webSocketClose(ws, code) {
