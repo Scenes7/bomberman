@@ -371,3 +371,10 @@ button.primary { background: var(--accent); color: #1a1a1a; }
    gets the whole card width. */
 #link { text-overflow: clip; }
 .link-row { flex-direction: column; }
+
+/* Lobby: pinned to the top so switching mode never moves the title or the card's top
+   edge; the card just grows downward. The player list is the part that scrolls if the
+   lobby gets crowded, so the Start button stays within reach. */
+#screen-lobby { justify-content: flex-start; padding-top: clamp(24px, 12vh, 120px); }
+/* Shrinks on short screens (down to a few rows) so Start stays in view. */
+#player-list { max-height: clamp(110px, calc(100vh - 620px), 38vh); overflow-y: auto; }
