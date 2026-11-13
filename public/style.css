@@ -380,31 +380,15 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 #player-list { max-height: clamp(110px, calc(100vh - 620px), 38vh); overflow-y: auto; }
 
 /* ---- Lobby card layout ----
-   Narrow screens: one column, in the order link, mode, players, team, Start. The two
-   column wrappers vanish and `order` arranges their children. */
-.lobby-col { display: contents; }
-.lobby-main > :nth-child(-n+3) { order: 0; }   /* link label, link, mode */
-.lobby-side > * { order: 1; }                  /* players, team */
-#start, #lobby-status { order: 2; }
+   Narrow screens: one column, in the order setup, players, team, Start, status. */
+.lobby-card > .lobby-setup { display: flex; flex-direction: column; gap: 12px; order: 0; }
+.lobby-card > .lobby-roster { order: 1; }
+.lobby-card > #team-picker { order: 2; }
+.lobby-card > #start { order: 3; }
+.lobby-card > #lobby-status { order: 4; }
 
-/* Wide screens: setup on the left, the roster and team switch on the right. The card
-   is wider but starts at the same spot, so nothing jumps when the mode changes. */
-@media (min-width: 820px) {
-  #screen-lobby .lobby-card {
-    max-width: 780px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    align-items: start;
-  }
-  .lobby-col { display: flex; flex-direction: column; gap: 12px; }
-  .lobby-main > *, .lobby-side > *, #start, #lobby-status { order: 0; }
-  #player-list { max-height: 50vh; }
-}
-
-/* Desktop: the page itself never scrolls. The lobby is exactly one screen tall, the card
-   fits inside it, and the player list takes whatever height is left (scrolling inside
-   itself). If the window is truly tiny the card scrolls internally as a last resort. */
+/* Desktop: the page itself never scrolls, and the card's size never depends on who is in
+   the lobby. */
 @media (hover: hover) and (pointer: fine) {
   #screen-lobby { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
   #screen-lobby .lobby-card {
@@ -412,8 +396,27 @@ button.primary { background: var(--accent); color: #1a1a1a; }
     overflow-y: auto;
   }
 }
-@media (min-width: 820px) and (hover: hover) and (pointer: fine) {
-  #screen-lobby .lobby-card { overflow: hidden; }
-  .lobby-side { min-height: 0; max-height: 100%; }
-  #player-list { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; }
+
+/* Wide screens: setup on the left, the roster on the right (scrolling inside its own box,
+   so it never makes the card taller), then Start and the team switch side by side on the
+   bottom row, and the status line beneath. */
+@media (min-width: 820px) {
+  #screen-lobby .lobby-card {
+    max-width: 780px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto minmax(4.5rem, auto) auto;   /* bottom row always has room for the team switch */
+    gap: 16px 24px;
+    align-items: end;
+  }
+  .lobby-card > * { order: 0; }
+  .lobby-card > .lobby-setup { grid-column: 1; grid-row: 1; align-self: stretch; }
+  .lobby-card > .lobby-roster { grid-column: 2; grid-row: 1; align-self: stretch; position: relative; min-height: 0; }
+  .lobby-card > #start { grid-column: 1; grid-row: 2; }
+  .lobby-card > #team-picker { grid-column: 2; grid-row: 2; }
+  .lobby-card > #lobby-status { grid-column: 1 / -1; grid-row: 3; }
+  /* The list fills its cell exactly instead of sizing it. */
+  .lobby-roster > #player-list { position: absolute; inset: 0; max-height: none; overflow-y: auto; }
 }
+/* Reserve two lines for the mode description so switching modes never changes the height. */
+#mode-note { min-height: 3.7rem; }
