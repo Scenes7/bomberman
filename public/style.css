@@ -420,3 +420,33 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 }
 /* Reserve two lines for the mode description so switching modes never changes the height. */
 #mode-note { min-height: 3.7rem; }
+
+/* Phones / narrow windows: the page never scrolls. The card is as tall as the screen
+   allows, everything in it is a little smaller, and the player list is the one part that
+   shrinks and scrolls (its small scrollbar) when the lobby is crowded. */
+@media (max-width: 819px) {
+  #screen-lobby {
+    height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
+    padding: 14px 12px; gap: 10px;
+  }
+  #screen-lobby h1 { font-size: clamp(16px, 5.5vw, 22px); }
+  #screen-lobby .lobby-card {
+    flex: 0 1 auto; min-height: 0; overflow: hidden;
+    max-height: none; padding: 14px; gap: 8px;
+    display: flex; flex-direction: column;
+  }
+  .lobby-card > * { flex-shrink: 0; }
+  .lobby-card > .lobby-roster { flex: 0 1 auto; min-height: 96px; display: flex; flex-direction: column; }
+  #player-list { flex: 0 1 auto; min-height: 0; max-height: none; overflow-y: auto; gap: 4px; }
+  #player-list li { padding: 6px 10px; font-size: 0.9rem; }
+  #player-list li.empty { font-size: 0.8rem; }
+
+  .lobby-setup { gap: 8px; }
+  #screen-lobby label { font-size: 0.8rem; }
+  #screen-lobby input { padding: 7px 10px; font-size: 0.9rem; }
+  #screen-lobby button { padding: 8px 12px; font-size: 0.9rem; }
+  #mode-picker, #team-picker { gap: 5px; }
+  #mode-note { min-height: 0; font-size: 0.72rem; padding: 6px 10px; line-height: 1.35; }
+  #lobby-status { font-size: 0.75rem; }
+  #player-list .kick { padding: 1px 6px; font-size: 0.7rem; }
+}
