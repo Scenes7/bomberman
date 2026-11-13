@@ -157,12 +157,17 @@
   // from dropping to free-for-all.
   function renderModePicker(data, isHost) {
     const current = data.modes.find(m => m.id === data.mode) || { label: data.mode, blurb: '' };
-    $('mode-label').textContent = current.label;
     $('mode-note').textContent = current.blurb;
     const box = $('mode-buttons');
-    box.hidden = !isHost;
     box.innerHTML = '';
-    if (!isHost) return;
+    // Everyone else just sees which mode it is; only the host gets the switch.
+    if (!isHost) {
+      const chip = document.createElement('div');
+      chip.className = 'mode-chip';
+      chip.textContent = current.label;
+      box.appendChild(chip);
+      return;
+    }
     for (const m of data.modes) {
       const b = document.createElement('button');
       b.type = 'button';

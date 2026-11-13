@@ -330,3 +330,39 @@ button.primary { background: var(--accent); color: #1a1a1a; }
   background: transparent; color: var(--danger); border: 1px solid var(--danger); cursor: pointer;
 }
 #player-list .kick:hover { background: var(--danger); color: #1a1a1a; }
+
+/* Lobby/home form sections: a label, then its control, then a note, evenly spaced. */
+#mode-picker, #create-mode, #team-picker { display: flex; flex-direction: column; gap: 8px; }
+#team-picker[hidden] { display: none; }
+#player-list { margin: 0; }
+
+/* The line of explanation under a picker: a quiet box, left-aligned and sized to wrap
+   neatly instead of floating centred in the card. */
+.note {
+  margin: 0;
+  padding: 10px 12px;
+  background: #15181d;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: left;
+  text-wrap: balance;
+}
+.note:empty { display: none; }
+
+/* What a non-host sees in place of the mode buttons. */
+.mode-chip {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #15181d;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  text-align: center;
+}
+#lobby-status { font-size: 0.85rem; text-wrap: balance; }
+/* Names sit at the left of their row (after the team dot); HOST / Kick sit at the right. */
+#player-list li { justify-content: flex-start; }
+#player-list li .tag, #player-list li .kick { margin-left: auto; }
