@@ -32,29 +32,35 @@
   <!-- Lobby: share the link, wait for a friend, host starts -->
   <section id="screen-lobby" class="screen">
     <h1>LOBBY <span id="lobby-code"></span></h1>
-    <div class="card">
-      <label for="link">Send this link to your friend</label>
-      <div class="row link-row">
-        <input id="link" readonly>
-        <button id="copy">Copy</button>
-      </div>
-      <!-- Mode: everyone sees it, only the host can change it. -->
-      <div id="mode-picker">
-        <label>Game mode</label>
-        <div class="pick" id="mode-buttons"></div>
-        <p id="mode-note" class="note"></p>
-      </div>
+    <div class="card lobby-card">
+      <!-- Left on a wide screen: the link, the mode and the Start button. -->
+      <div class="lobby-col lobby-main">
+        <label for="link">Send this link to your friend</label>
+        <div class="row link-row">
+          <input id="link" readonly>
+          <button id="copy">Copy</button>
+        </div>
+        <!-- Mode: everyone sees it, only the host can change it. -->
+        <div id="mode-picker">
+          <label>Game mode</label>
+          <div class="pick" id="mode-buttons"></div>
+          <p id="mode-note" class="note"></p>
+        </div>
 
-      <ul id="player-list"></ul>
-
-      <!-- Team: shown only in modes that have teams; each player picks their own. -->
-      <div id="team-picker" hidden>
-        <label>Your team</label>
-        <div class="pick" id="team-buttons"></div>
+        <button id="start" class="primary">Start match</button>
+        <p id="lobby-status" class="hint"></p>
       </div>
 
-      <button id="start" class="primary">Start match</button>
-      <p id="lobby-status" class="hint"></p>
+      <!-- Right on a wide screen: who is here, and which team you are on. -->
+      <div class="lobby-col lobby-side">
+        <ul id="player-list"></ul>
+
+        <!-- Team: shown only in modes that have teams; each player picks their own. -->
+        <div id="team-picker" hidden>
+          <label>Your team</label>
+          <div class="pick" id="team-buttons"></div>
+        </div>
+      </div>
     </div>
   </section>
 

@@ -378,3 +378,42 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 #screen-lobby { justify-content: flex-start; padding-top: clamp(24px, 12vh, 120px); }
 /* Shrinks on short screens (down to a few rows) so Start stays in view. */
 #player-list { max-height: clamp(110px, calc(100vh - 620px), 38vh); overflow-y: auto; }
+
+/* ---- Lobby card layout ----
+   Narrow screens: one column, in the order link, mode, players, team, Start. The two
+   column wrappers vanish and `order` arranges their children. */
+.lobby-col { display: contents; }
+.lobby-main > :nth-child(-n+3) { order: 0; }   /* link label, link, mode */
+.lobby-side > * { order: 1; }                  /* players, team */
+#start, #lobby-status { order: 2; }
+
+/* Wide screens: setup on the left, the roster and team switch on the right. The card
+   is wider but starts at the same spot, so nothing jumps when the mode changes. */
+@media (min-width: 820px) {
+  #screen-lobby .lobby-card {
+    max-width: 780px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  .lobby-col { display: flex; flex-direction: column; gap: 12px; }
+  .lobby-main > *, .lobby-side > *, #start, #lobby-status { order: 0; }
+  #player-list { max-height: 50vh; }
+}
+
+/* Desktop: the page itself never scrolls. The lobby is exactly one screen tall, the card
+   fits inside it, and the player list takes whatever height is left (scrolling inside
+   itself). If the window is truly tiny the card scrolls internally as a last resort. */
+@media (hover: hover) and (pointer: fine) {
+  #screen-lobby { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+  #screen-lobby .lobby-card {
+    max-height: calc(100dvh - clamp(24px, 12vh, 120px) - 24px);
+    overflow-y: auto;
+  }
+}
+@media (min-width: 820px) and (hover: hover) and (pointer: fine) {
+  #screen-lobby .lobby-card { overflow: hidden; }
+  .lobby-side { min-height: 0; max-height: 100%; }
+  #player-list { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; }
+}
