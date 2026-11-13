@@ -99,8 +99,9 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 #screen-home.invited #join { flex: 1; }
 .hint .code {
   font-family: var(--pixel);
-  color: var(--accent);
+  color: #4cc9f0;           /* same as the code in the lobby banner */
   letter-spacing: 0.1em;
+  margin-left: 0.5em;
   white-space: nowrap;
 }
 
