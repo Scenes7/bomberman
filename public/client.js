@@ -54,6 +54,13 @@
   // The key to my seat in a running match, kept per lobby so that coming back to the
   // same lobby link after a dropped connection puts me back where I was.
   const SESSION_KEY = 'bomberman-session';
+  const KICKED_KEY = 'bomberman-kicked';
+  try {
+    if (sessionStorage.getItem(KICKED_KEY)) {
+      sessionStorage.removeItem(KICKED_KEY);
+      $('home-error').textContent = 'The host removed you from the lobby.';
+    }
+  } catch {}
   function saveSession(code, token) {
     try { localStorage.setItem(SESSION_KEY, JSON.stringify({ code, token })); } catch {}
   }
@@ -190,6 +197,13 @@
         tag.className = 'tag';
         tag.textContent = 'HOST';
         li.appendChild(tag);
+      } else if (data.hostId === myId && data.state === 'lobby') {
+        const kick = document.createElement('button');
+        kick.type = 'button';
+        kick.className = 'kick';
+        kick.textContent = 'Kick';
+        kick.onclick = () => socket.emit('kick', { id: p.id });
+        li.appendChild(kick);
       }
       list.appendChild(li);
     }
@@ -227,6 +241,13 @@
     setTimeout(() => { $('copy').textContent = 'Copy'; }, 1200);
   };
   $('start').onclick = () => socket.emit('startGame');
+
+  // Removed by the host: forget the seat, and say why on the page they land on.
+  socket.on('kicked', () => {
+    clearSession();
+    try { sessionStorage.setItem(KICKED_KEY, '1'); } catch {}
+    location.replace(location.pathname);
+  });
 
   socket.on('disconnect', () => {
     game = null;

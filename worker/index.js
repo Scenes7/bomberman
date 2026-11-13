@@ -209,6 +209,22 @@ export class Lobby extends DurableObject {
         room.setTeam(me, String(d.team || ''));
         break;
 
+      // Host-only: remove someone from the lobby. Their seat (and its token) goes with
+      // them, so they can't slip back in through a saved session.
+      case 'kick': {
+        const target = String(d.id || '');
+        if (!room || room.hostId !== me || room.state !== 'lobby') return;
+        if (target === me || !room.players.has(target)) return;
+        this.send(target, 'kicked', {});
+        for (const old of this.ctx.getWebSockets(target)) {
+          const oa = old.deserializeAttachment();
+          try { old.serializeAttachment({ ...oa, joined: false, left: true }); } catch {}
+          try { old.close(1000, 'kicked'); } catch {}
+        }
+        room.removePlayer(target);
+        break;
+      }
+
       case 'startGame':
         if (!room || room.hostId !== me || room.state !== 'lobby') return;
         if (room.startBlocker()) return;
