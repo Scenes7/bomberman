@@ -6,6 +6,7 @@
   let myId = null;
   let lobby = null;   // last 'lobby' payload
   let game = null;    // active match state, see onStart
+  let spectating = false;   // arrived mid-match: watching, not playing
 
   // ---------- screens ----------
   function show(name) {
@@ -74,7 +75,8 @@
     myId = res.id;
     history.replaceState(null, '', `?lobby=${res.code}`);
     if (res.token) saveSession(res.code, res.token);
-    if (res.rejoined) return;      // the match view arrives next
+    spectating = !!res.spectator;
+    if (res.rejoined || res.spectator) return;      // the match view arrives next
     show('lobby');
     // The lobby broadcast can arrive before this ack, in which case it was painted
     // without knowing which player is us. Repaint now that we do.
@@ -270,6 +272,11 @@
     Render.setup(canvas, n);
     renderHud();
     show('game');
+    $('screen-game').classList.toggle('spectating', spectating);
+    if (spectating) {
+      $('eliminated').textContent = 'Spectating';
+      $('eliminated').hidden = false;
+    }
     if (data.countdown > 0) showCountdown();
     else overlay(null);            // rejoining a match already under way
   });
@@ -334,6 +341,10 @@
     game.over = true;
     $('eliminated').hidden = true;
     const me = game.players.get(myId);
+    if (spectating) {
+      setTimeout(() => showResult({ spectated: true, team: winnerTeam, winnerName }), 700);
+      return;
+    }
     const result = winnerTeam ? (me && me.team === winnerTeam
         ? { won: true, team: winnerTeam }
         : { lost: true, team: winnerTeam })
@@ -430,9 +441,13 @@
     tick();
   }
 
-  function showResult({ won, draw, lost, winnerName, team }) {
+  function showResult({ won, draw, lost, winnerName, team, spectated }) {
     const teamName = team ? escapeHtml(team.toUpperCase()) : null;
-    if (won) {
+    if (spectated) {
+      if (teamName) overlay(`<div class="big team-${team}">${teamName} WINS!</div>`);
+      else if (winnerName) overlay(`<div class="big">${escapeHtml(winnerName)} WINS!</div>`);
+      else overlay('<div class="big lose">DRAW</div>');
+    } else if (won) {
       overlay(teamName
         ? `<div class="big team-${team}">${teamName} WINS!</div><p>Your team took it.</p>`
         : '<div class="big">YOU WIN!</div><p>Last one standing.</p>');
@@ -442,7 +457,7 @@
     const btn = document.createElement('button');
     btn.className = 'primary';
     btn.textContent = 'Back to lobby';
-    btn.onclick = () => { game = null; overlay(null); show('lobby'); };
+    btn.onclick = () => { game = null; spectating = false; overlay(null); show('lobby'); };
     $('overlay').appendChild(btn);
   }
 

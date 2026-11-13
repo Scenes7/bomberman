@@ -184,7 +184,15 @@ export class Lobby extends DurableObject {
           return;
         }
         if (d.rejoin) return ack({ ok: false, error: 'There is no match to rejoin.' });
-        if (room.state !== 'lobby') return ack({ ok: false, error: 'That match is already in progress.' });
+        // Arriving mid-match means watching it. The lobby's capacity covers watchers too,
+        // so everyone can be seated once the match ends.
+        if (room.state !== 'lobby') {
+          if (room.players.size + room.spectators.size >= room.mode.maxPlayers) {
+            return ack({ ok: false, error: 'That match is in progress and the lobby is full.' });
+          }
+          this.spectate(ws, a, d.name, ack);
+          return;
+        }
         if (room.players.size >= room.mode.maxPlayers) return ack({ ok: false, error: 'Lobby is full.' });
         this.join(ws, a, d.name, ack);
         break;
@@ -221,6 +229,17 @@ export class Lobby extends DurableObject {
     ws.serializeAttachment({ ...a, joined: true, name: clean, seq: Date.now() + Math.random(), token });
     ack({ ok: true, code: this.code, id: a.id, token });
     this.room.addPlayer(a.id, clean, token);
+  }
+
+  // A watcher: same socket handling as a player, but kept out of the roster, and handed
+  // the match as it stands.
+  spectate(ws, a, name, ack) {
+    const clean = cleanName(name);
+    const token = crypto.randomUUID();
+    ws.serializeAttachment({ ...a, joined: true, name: clean, seq: Date.now() + Math.random(), token });
+    ack({ ok: true, code: this.code, id: a.id, token, spectator: true });
+    this.room.addSpectator(a.id, clean, token);
+    this.send(a.id, 'start', this.room.startPayload());
   }
 
   // Back into a running match under the old id: the ack comes first so the client knows

@@ -57,6 +57,9 @@ class Room {
     this.state = 'lobby';     // 'lobby' | 'playing'
     this.mode = MODES[MODE.FFA];
     this.match = null;
+    // People who arrived while a match was running. They watch it, take no part, and
+    // are seated as ordinary players when it ends.
+    this.spectators = new Map(); // socket id -> { id, name, token }
   }
 
   roster() {
@@ -99,6 +102,10 @@ class Room {
     this.broadcastLobby();
   }
 
+  addSpectator(id, name, token) {
+    this.spectators.set(id, { id, name, token });
+  }
+
   setMode(id) {
     if (this.state !== 'lobby') return false;
     const next = MODES[id];
@@ -124,6 +131,7 @@ class Room {
   }
 
   removePlayer(id, force = false) {
+    if (this.spectators.delete(id)) return;
     // Mid-match a dropped connection holds the seat instead of ending the player's
     // match: they stay in play (and vulnerable) so they can rejoin, until the grace
     // period runs out (see expireDisconnected).
@@ -413,6 +421,13 @@ class Room {
     for (const id of [...this.players.keys()]) {
       if (m.players.get(id) && m.players.get(id).disconnectedAt) this.players.delete(id);
     }
+    // Spectators join the lobby like everyone else (they were admitted only if they'd fit).
+    for (const s of this.spectators.values()) {
+      if (this.players.size < this.mode.maxPlayers) {
+        this.players.set(s.id, { id: s.id, name: s.name, team: this.smallestTeam(), token: s.token });
+      }
+    }
+    this.spectators.clear();
     if (!this.players.has(this.hostId)) this.hostId = this.players.keys().next().value || null;
     this.match = null;
     this.broadcastLobby();

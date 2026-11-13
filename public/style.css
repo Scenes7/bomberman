@@ -320,3 +320,6 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 
 /* The lobby code in the banner: its own colour so it's the thing you spot to share. */
 #lobby-code { color: #4cc9f0; letter-spacing: 0.08em; }
+
+/* Watchers have nothing to steer or drop. */
+#screen-game.spectating #joy, #screen-game.spectating #bomb-btn { display: none !important; }
