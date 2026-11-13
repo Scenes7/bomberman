@@ -94,8 +94,7 @@ button.primary { background: var(--accent); color: #1a1a1a; }
    create path and the code box (already filled in from the link) drop away. */
 #screen-home.invited #create,
 #screen-home.invited #or-divider,
-#screen-home.invited #code,
-#screen-home.invited #create-mode { display: none; }
+#screen-home.invited #code { display: none; }
 #screen-home.invited #join { flex: 1; }
 .hint .code {
   font-family: var(--pixel);
@@ -333,7 +332,7 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 #player-list .kick:hover { background: var(--danger); color: #1a1a1a; }
 
 /* Lobby/home form sections: a label, then its control, then a note, evenly spaced. */
-#mode-picker, #create-mode, #team-picker { display: flex; flex-direction: column; gap: 8px; }
+#mode-picker, #team-picker { display: flex; flex-direction: column; gap: 8px; }
 #team-picker[hidden] { display: none; }
 #player-list { margin: 0; }
 

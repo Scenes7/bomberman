@@ -1,5 +1,5 @@
 (() => {
-  const { stepPlayer, overlappedTiles, POWERUP, MODE, MODES } = Shared;
+  const { stepPlayer, overlappedTiles, POWERUP } = Shared;
   const socket = Net.connect();
   const $ = id => document.getElementById(id);
 
@@ -91,27 +91,9 @@
     paintLobby(lobby);
   }
 
-  // Mode picker on the home screen. Built from the shared mode table, so a new mode
-  // shows up here without touching this code.
-  let createMode = MODE.FFA;
-  const createModeBox = $('create-mode-buttons');
-  for (const m of Object.values(MODES)) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.dataset.mode = m.id;
-    b.textContent = m.label;
-    b.onclick = () => { createMode = m.id; paintCreateMode(); };
-    createModeBox.appendChild(b);
-  }
-  function paintCreateMode() {
-    for (const b of createModeBox.children) b.classList.toggle('on', b.dataset.mode === createMode);
-    $('create-mode-note').textContent = MODES[createMode].blurb;
-  }
-  paintCreateMode();
-
   const createLobby = () => {
     $('home-error').textContent = '';
-    socket.emit('createLobby', { name: playerName(), mode: createMode }, entered);
+    socket.emit('createLobby', { name: playerName() }, entered);   // a new lobby starts as free-for-all
   };
   $('create').onclick = createLobby;
   $('create-instead').onclick = () => { setInvited(false); createLobby(); };
