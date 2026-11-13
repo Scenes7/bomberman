@@ -98,13 +98,20 @@ export class Lobby extends DurableObject {
   // on for host succession and spawn seats.
   restore(meta) {
     this.code = meta.code;
-    const room = new Room(meta.code, this.io);
+    const room = this.newRoom(meta.code);
     for (const { a } of this.joinedSockets()) room.players.set(a.id, { id: a.id, name: a.name, team: a.team, token: a.token });
     if (!room.players.size) return;
     room.hostId = room.players.has(meta.hostId) ? meta.hostId : room.players.keys().next().value;
     if (MODES[meta.mode]) room.mode = MODES[meta.mode];
     this.room = room;
     this.saved = JSON.stringify(meta);
+  }
+
+  newRoom(code) {
+    const room = new Room(code, this.io);
+    // Lets an emptied lobby be dropped the moment its match ends, not just on a socket event.
+    room.onMatchEnd = () => this.persist().catch(() => {});
+    return room;
   }
 
   // Write lobby state where it survives hibernation. Called after anything that can
@@ -170,7 +177,7 @@ export class Lobby extends DurableObject {
         if (me) return;
         // A fresh random code landed on a live lobby: astronomically rare, just retry.
         if (room) return ack({ ok: false, error: 'Could not create a lobby, please try again.' });
-        this.room = new Room(this.code, this.io);
+        this.room = this.newRoom(this.code);
         // The host may pick the mode up front; an unknown value just leaves the default.
         if (d.mode) this.room.setMode(String(d.mode));
         this.join(ws, a, d.name, ack);

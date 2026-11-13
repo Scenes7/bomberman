@@ -438,6 +438,9 @@ class Room {
     if (!this.players.has(this.hostId)) this.hostId = this.players.keys().next().value || null;
     this.match = null;
     this.broadcastLobby();
+    // A match can end with nobody left to notice (every seat timed out), so the host
+    // of this room gets told rather than waiting for a connection event.
+    if (this.onMatchEnd) this.onMatchEnd();
   }
 
   destroy() {
