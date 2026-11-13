@@ -367,3 +367,8 @@ button.primary { background: var(--accent); color: #1a1a1a; }
 /* Names sit at the left of their row (after the team dot); HOST / Kick sit at the right. */
 #player-list li { justify-content: flex-start; }
 #player-list li .tag, #player-list li .kick { margin-left: auto; }
+
+/* The invite link: always shown in full. The Copy button sits below it so the address
+   gets the whole card width. */
+#link { text-overflow: clip; }
+.link-row { flex-direction: column; }

@@ -80,6 +80,7 @@
       return;
     }
     myId = res.id;
+    requestAnimationFrame(fitLink);
     history.replaceState(null, '', `?lobby=${res.code}`);
     if (res.token) saveSession(res.code, res.token);
     spectating = !!res.spectator;
@@ -138,7 +139,11 @@
   function paintLobby(data) {
     if (!data) return;
     $('lobby-code').textContent = data.code;
-    $('link').value = `${location.origin}${location.pathname}?lobby=${data.code}`;
+    // Shown without the protocol so the whole address fits; copying uses the full URL.
+    const link = $('link');
+    link.dataset.full = `${location.origin}${location.pathname}?lobby=${data.code}`;
+    link.value = link.dataset.full.replace(/^https?:\/\//, '');
+    fitLink();
 
     const isHost = data.hostId === myId;
     renderModePicker(data, isHost);
@@ -239,8 +244,18 @@
     }
   }
 
+  // Shrink the link's text until all of it is visible, on any screen width.
+  function fitLink() {
+    const link = $('link');
+    if (!link.offsetWidth) return;       // lobby screen not showing yet
+    let size = 14;
+    link.style.fontSize = `${size}px`;
+    while (link.scrollWidth > link.clientWidth && size > 8) link.style.fontSize = `${--size}px`;
+  }
+  addEventListener('resize', fitLink);
+
   $('copy').onclick = async () => {
-    try { await navigator.clipboard.writeText($('link').value); }
+    try { await navigator.clipboard.writeText($('link').dataset.full || $('link').value); }
     catch { $('link').select(); document.execCommand('copy'); }
     $('copy').textContent = 'Copied!';
     setTimeout(() => { $('copy').textContent = 'Copy'; }, 1200);
