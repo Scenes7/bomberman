@@ -76,7 +76,7 @@
     history.replaceState(null, '', `?lobby=${res.code}`);
     if (res.token) saveSession(res.code, res.token);
     spectating = !!res.spectator;
-    if (res.rejoined || res.spectator) return;      // the match view arrives next
+    if ((res.rejoined && !res.lobby) || res.spectator) return;      // the match view arrives next
     show('lobby');
     // The lobby broadcast can arrive before this ack, in which case it was painted
     // without knowing which player is us. Repaint now that we do.

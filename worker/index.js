@@ -242,13 +242,15 @@ export class Lobby extends DurableObject {
     this.send(a.id, 'start', this.room.startPayload());
   }
 
-  // Back into a running match under the old id: the ack comes first so the client knows
-  // who it is, then the match as it stands.
+  // Back under the old id, into a running match or the lobby: the ack comes first so
+  // the client knows who it is, then the match as it stands (or the lobby).
   rejoin(ws, a, ack) {
-    const name = (this.room.players.get(a.id) || {}).name || 'Guest';
-    ws.serializeAttachment({ ...a, joined: true, name, seq: Date.now() + Math.random() });
-    ack({ ok: true, code: this.code, id: a.id, token: a.token, rejoined: true });
-    this.send(a.id, 'start', this.room.startPayload());
+    const p = this.room.players.get(a.id) || {};
+    ws.serializeAttachment({ ...a, joined: true, name: p.name || 'Guest', team: p.team, seq: Date.now() + Math.random() });
+    const inMatch = !!(this.room.match && !this.room.match.over);
+    ack({ ok: true, code: this.code, id: a.id, token: a.token, rejoined: true, lobby: !inMatch });
+    if (inMatch) this.send(a.id, 'start', this.room.startPayload());
+    else this.room.broadcastLobby();
   }
 
   async webSocketClose(ws, code) {

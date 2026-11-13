@@ -230,7 +230,13 @@ class Room {
   // powerups when they change, so flag both to refill the rejoiner's picture.
   rejoin(id, token) {
     const m = this.match;
-    const seat = m && !m.over && m.players.get(id);
+    if (!m || m.over) {
+      // In the lobby a seat is just the roster entry: coming back with its token keeps
+      // it, instead of leaving the old connection behind as a ghost beside a new one.
+      const p = this.players.get(id);
+      return !!p && !!token && p.token === token;
+    }
+    const seat = m.players.get(id);
     if (!seat || !token || seat.token !== token) return false;
     delete seat.disconnectedAt;
     m.gridDirty = true;
@@ -238,11 +244,12 @@ class Room {
     return true;
   }
 
-  // The match a token belongs to, if it is still running: the id that token holds.
+  // The id a token holds: its seat in the running match, or its place in the lobby.
   seatFor(token) {
+    if (!token) return null;
     const m = this.match;
-    if (!m || m.over || !token) return null;
-    for (const p of m.players.values()) if (p.token === token) return p.id;
+    const seats = m && !m.over ? m.players : this.players;
+    for (const p of seats.values()) if (p.token === token) return p.id;
     return null;
   }
 
